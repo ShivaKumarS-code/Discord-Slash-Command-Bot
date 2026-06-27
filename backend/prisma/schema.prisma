@@ -1,0 +1,127 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum InteractionStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  RETRYING
+}
+
+enum ActionStatus {
+  SUCCESS
+  FAILED
+  PENDING
+  RETRYING
+}
+
+enum ActionType {
+  SAVE_INTERACTION
+  AI_STARTED
+  AI_COMPLETED
+  MIRROR_SENT
+  DISCORD_REPLY_SENT
+  RETRY
+  FAILURE
+}
+
+model User {
+  id               String   @id @default(uuid()) @db.Uuid
+  supabase_user_id String   @unique @db.Uuid
+  email            String   @db.VarChar(255)
+  display_name     String?  @db.VarChar(255)
+  created_at       DateTime @default(now()) @db.Timestamptz
+  updated_at       DateTime @updatedAt @db.Timestamptz
+  servers          Server[]
+
+  @@map("users")
+}
+
+model Server {
+  id               String           @id @default(uuid()) @db.Uuid
+  discord_guild_id BigInt           @unique
+  name             String           @db.VarChar(255)
+  owner_id         String           @db.Uuid
+  created_at       DateTime         @default(now()) @db.Timestamptz
+  updated_at       DateTime         @updatedAt @db.Timestamptz
+  owner            User             @relation(fields: [owner_id], references: [id], onDelete: Cascade)
+  config           ServerConfig?
+  command_configs  CommandConfig[]
+  interaction_logs InteractionLog[]
+
+  @@map("servers")
+}
+
+model ServerConfig {
+  id                         String   @id @default(uuid()) @db.Uuid
+  server_id                  String   @unique @db.Uuid
+  mirror_channel_id          BigInt?
+  default_command_channel_id BigInt?
+  logging_enabled            Boolean  @default(true)
+  ai_enabled                 Boolean  @default(true)
+  created_at                 DateTime @default(now()) @db.Timestamptz
+  updated_at                 DateTime @updatedAt @db.Timestamptz
+  server                     Server   @relation(fields: [server_id], references: [id], onDelete: Cascade)
+
+  @@map("server_configs")
+}
+
+model CommandConfig {
+  id             String   @id @default(uuid()) @db.Uuid
+  server_id      String   @db.Uuid
+  command_name   String   @db.VarChar(100)
+  enabled        Boolean  @default(true)
+  ai_enabled     Boolean  @default(true)
+  mirror_enabled Boolean  @default(false)
+  created_at     DateTime @default(now()) @db.Timestamptz
+  updated_at     DateTime @updatedAt @db.Timestamptz
+  server         Server   @relation(fields: [server_id], references: [id], onDelete: Cascade)
+
+  @@unique([server_id, command_name], name: "uq_command_configs_server_command")
+  @@index([server_id])
+  @@map("command_configs")
+}
+
+model InteractionLog {
+  id              String            @id @default(uuid()) @db.Uuid
+  interaction_id  String            @unique @db.VarChar(100)
+  server_id       String            @db.Uuid
+  discord_user_id BigInt
+  command         String            @db.VarChar(100)
+  arguments       Json?
+  status          InteractionStatus
+  ai_summary      String?           @db.VarChar(1000)
+  ai_tags         Json?
+  created_at      DateTime          @default(now()) @db.Timestamptz
+  server          Server            @relation(fields: [server_id], references: [id], onDelete: Cascade)
+  action_logs     ActionLog[]
+
+  @@index([server_id])
+  @@index([command])
+  @@index([created_at])
+  @@map("interaction_logs")
+}
+
+model ActionLog {
+  id                 String         @id @default(uuid()) @db.Uuid
+  interaction_log_id String         @db.Uuid
+  action_type        ActionType
+  status             ActionStatus
+  provider           String?        @db.VarChar(100)
+  error_message      String?        @db.Text
+  retry_count        Int            @default(0)
+  duration_ms        Int?
+  created_at         DateTime       @default(now()) @db.Timestamptz
+  interaction_log    InteractionLog @relation(fields: [interaction_log_id], references: [id], onDelete: Cascade)
+
+  @@index([interaction_log_id])
+  @@index([created_at])
+  @@map("action_logs")
+}
