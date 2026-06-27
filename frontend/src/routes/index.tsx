@@ -1,20 +1,47 @@
 import { createBrowserRouter } from "react-router-dom"
-import Home from "@/pages/Home"
-import Login from "@/pages/Login"
+import DashboardLayout from "@/components/DashboardLayout"
 import ProtectedRoute from "@/components/ProtectedRoute"
+import Dashboard from "@/pages/Dashboard"
+import Servers from "@/pages/Servers"
+import Commands from "@/pages/Commands"
+import Interactions from "@/pages/Interactions"
+import Actions from "@/pages/Actions"
+import Login from "@/pages/Login"
 
 /**
- * Configures client routes.
- * Secure routes by wrapping them inside the ProtectedRoute component.
+ * Configure routes for the React application.
+ * All dashboard paths are nested under DashboardLayout and require authentication.
  */
 export const router = createBrowserRouter([
   {
     path: "/",
     element: (
       <ProtectedRoute>
-        <Home />
+        <DashboardLayout />
       </ProtectedRoute>
-    )
+    ),
+    children: [
+      {
+        path: "",
+        element: <Dashboard />
+      },
+      {
+        path: "servers",
+        element: <Servers />
+      },
+      {
+        path: "commands",
+        element: <Commands />
+      },
+      {
+        path: "interactions",
+        element: <Interactions />
+      },
+      {
+        path: "actions",
+        element: <Actions />
+      }
+    ]
   },
   {
     path: "/login",
