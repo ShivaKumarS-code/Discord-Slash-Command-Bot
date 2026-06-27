@@ -1,8 +1,9 @@
 import { Router } from "express"
+import authRouter from "./auth"
 
 const router = Router()
 
-// Centralized API subrouters can be registered here:
-// router.use("/users", userRouter)
+// Register Sub-Routers
+router.use("/auth", authRouter)
 
 export default router

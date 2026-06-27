@@ -1,18 +1,23 @@
 import { createBrowserRouter } from "react-router-dom"
 import Home from "@/pages/Home"
+import Login from "@/pages/Login"
+import ProtectedRoute from "@/components/ProtectedRoute"
 
 /**
- * Configure routes for the React application.
- * You can add layout routes, sub-routes, and loaders here.
+ * Configures client routes.
+ * Secure routes by wrapping them inside the ProtectedRoute component.
  */
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <Home />,
+    element: (
+      <ProtectedRoute>
+        <Home />
+      </ProtectedRoute>
+    )
   },
-  // Add more routes here, e.g.:
-  // {
-  //   path: "/dashboard",
-  //   element: <Dashboard />,
-  // }
+  {
+    path: "/login",
+    element: <Login />
+  }
 ])
