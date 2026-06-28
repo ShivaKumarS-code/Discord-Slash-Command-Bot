@@ -246,6 +246,54 @@ router.post("/interactions", verifyDiscordSignature, async (req, res) => {
     }
 
     if (type === 2) { // APPLICATION_COMMAND
+      const { name: commandName, options } = req.body.data || {}
+      const hasTextOption = options?.some((o: any) => o.name === "text")
+
+      // If /report is executed without the text option, respond immediately with the Modal payload
+      if (commandName === "report" && !hasTextOption) {
+        res.json({
+          type: 9, // MODAL
+          data: {
+            title: "Submit Report",
+            custom_id: "report_modal",
+            components: [
+              {
+                type: 1, // Action Row
+                components: [
+                  {
+                    type: 4, // Text Input
+                    custom_id: "report_issue",
+                    label: "Issue",
+                    style: 1, // Short text input
+                    min_length: 1,
+                    max_length: 100,
+                    placeholder: "Server lag, bug, feature request...",
+                    required: true
+                  }
+                ]
+              },
+              {
+                type: 1, // Action Row
+                components: [
+                  {
+                    type: 4, // Text Input
+                    custom_id: "report_details",
+                    label: "Details",
+                    style: 2, // Paragraph input
+                    min_length: 1,
+                    max_length: 2000,
+                    placeholder: "Describe the issue in detail...",
+                    required: true
+                  }
+                ]
+              }
+            ]
+          }
+        })
+        return
+      }
+
+      // Otherwise, return deferred response immediately and process in the background
       const ackStart = Date.now()
       res.json({ type: 5 }) // Return deferred response immediately
       console.log(`⏱️ [${Date.now() - ackStart}ms] Deferred acknowledgement (type 5) sent to Discord`)
@@ -253,6 +301,18 @@ router.post("/interactions", verifyDiscordSignature, async (req, res) => {
       // Run execution pipeline in the background
       CommandService.handleCommand(req.body).catch((err) => {
         console.error("❌ Background command execution failed:", err)
+      })
+      return
+    }
+
+    if (type === 5) { // MODAL_SUBMIT
+      const ackStart = Date.now()
+      res.json({ type: 5 }) // Return deferred response immediately to show "is thinking..."
+      console.log(`⏱️ [${Date.now() - ackStart}ms] Deferred Modal acknowledgement (type 5) sent to Discord`)
+
+      // Run execution pipeline in the background
+      CommandService.handleCommand(req.body).catch((err) => {
+        console.error("❌ Background modal command execution failed:", err)
       })
       return
     }

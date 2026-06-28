@@ -136,7 +136,7 @@ export class DiscordService {
             name: "text",
             description: "The report text input content.",
             type: 3, // String type
-            required: true
+            required: false
           }
         ]
       }

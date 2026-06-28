@@ -2,6 +2,7 @@ import { prisma } from "../dependencies/prisma"
 import { InteractionStatus, ActionType, ActionStatus, Prisma } from "@prisma/client"
 import { env } from "../config/env"
 import AIService from "./aiService"
+import DiscordMessageBuilder from "../utils/discordEmbeds"
 
 /**
  * Service managing execution logic for all incoming slash commands.
@@ -14,7 +15,9 @@ export class CommandService {
    * Resolves configuration parameters, checks switches, logs events, and compiles replies.
    */
   static async handleCommand(payload: any): Promise<void> {
-    const { name: commandName, options } = payload.data
+    const isModal = payload.type === 5
+    const commandName = isModal ? "report" : payload.data.name
+    const options = payload.data?.options
     const guildId = payload.guild_id
     const interactionId = payload.id
     const discordUserId = payload.member?.user?.id || payload.user?.id
@@ -88,33 +91,71 @@ export class CommandService {
 
     const isAiEnabled = cmdConfig.ai_enabled
     const isMirrorEnabled = cmdConfig.mirror_enabled
-    const args = options || null
+
+    // Parse arguments and construct normalized report parameters
+    let issue = ""
+    let details = ""
+    let reportText = ""
+    let originalReportBlock = ""
+    let args: any[] = []
+
+    if (isModal) {
+      const components = payload.data?.components || []
+      for (const row of components) {
+        if (row.components) {
+          for (const comp of row.components) {
+            if (comp.custom_id === "report_issue") {
+              issue = comp.value
+            } else if (comp.custom_id === "report_details") {
+              details = comp.value
+            }
+          }
+        }
+      }
+      reportText = `Issue: ${issue}\nDetails: ${details}`
+      originalReportBlock = `**Issue**: ${issue}\n**Details**: ${details}`
+      args = [
+        { name: "issue", value: issue },
+        { name: "details", value: details }
+      ]
+    } else {
+      args = options || []
+      if (commandName === "report") {
+        const textOption = args?.find((o: any) => o.name === "text")
+        const textVal = textOption?.value || "No content supplied."
+        reportText = textVal
+        originalReportBlock = textVal
+      }
+    }
 
     try {
       let responseText = ""
       let aiSummary: string | null = null
+      let discordPayload: string | { content?: string; embeds?: any[]; components?: any[] } = ""
 
       if (commandName === "status") {
         responseText = this.formatStatusResponse()
+        discordPayload = responseText
       } else if (commandName === "about") {
-        responseText = this.formatAboutResponse()
+        const aboutMsg = DiscordMessageBuilder.buildAboutResponse()
+        discordPayload = aboutMsg
+        responseText = "Returned bot details embed."
       } else if (commandName === "report") {
-        const textOption = args?.find((o: any) => o.name === "text")
-        const textVal = textOption?.value || "No content supplied."
-        
         if (isAiEnabled) {
-          // Trigger Groq AI service call to summarize the text
-          aiSummary = await AIService.summarizeReport(textVal)
-          responseText = this.formatAiReportResponse(textVal, aiSummary)
+          // Trigger Groq AI service call to summarize the reportText
+          aiSummary = await AIService.summarizeReport(reportText)
+          responseText = this.formatAiReportResponse(originalReportBlock, aiSummary)
         } else {
-          responseText = this.formatStandardReportResponse(textVal)
+          responseText = this.formatStandardReportResponse(originalReportBlock)
         }
+        discordPayload = responseText
       } else {
         responseText = `❌ Error: Unknown slash command \`/${commandName}\`.`
+        discordPayload = responseText
       }
 
       // ALWAYS update the original deferred response using Discord webhooks API
-      await this.updateDeferredResponse(interactionToken, responseText)
+      await this.updateDeferredResponse(interactionToken, discordPayload)
 
       // Trigger logging and mirroring
       this.runLoggingAndMirroringPipeline(
@@ -164,13 +205,6 @@ export class CommandService {
   }
 
   /**
-   * Helper formatting about command responses.
-   */
-  private static formatAboutResponse(): string {
-    return `ℹ️ **About This Bot**\n\nHi! I'm a command bot created by Shiva Kumar S for a Full Stack Intern Assessment. Want to know more about me?\n\n🔗 **Visit my repository**: https://github.com/ShivaKumarS-code/Discord-Slash-Command-Bot`
-  }
-
-  /**
    * Helper formatting report responses without AI summaries.
    */
   private static formatStandardReportResponse(reportText: string): string {
@@ -187,16 +221,19 @@ export class CommandService {
   /**
    * Helper sending PATCH update to original deferred message.
    */
-  private static async updateDeferredResponse(token: string, content: string): Promise<void> {
+  private static async updateDeferredResponse(
+    token: string,
+    payload: string | { content?: string; embeds?: any[]; components?: any[] }
+  ): Promise<void> {
     const patchUrl = `https://discord.com/api/v10/webhooks/${env.DISCORD_CLIENT_ID}/${token}/messages/@original`
+    const body = typeof payload === "string" ? { content: payload } : payload
+
     const response = await fetch(patchUrl, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        content
-      })
+      body: JSON.stringify(body)
     })
 
     if (!response.ok) {
@@ -288,8 +325,18 @@ export class CommandService {
       // Extract and format arguments if present
       if (args && Array.isArray(args)) {
         const textOption = args.find((o: any) => o.name === "text")
+        const issueOption = args.find((o: any) => o.name === "issue")
+        const detailsOption = args.find((o: any) => o.name === "details")
+
         if (textOption) {
           fields.push({ name: "Reported Content", value: `"${textOption.value}"`, inline: false })
+        } else if (issueOption || detailsOption) {
+          if (issueOption) {
+            fields.push({ name: "Reported Issue", value: `"${issueOption.value}"`, inline: false })
+          }
+          if (detailsOption) {
+            fields.push({ name: "Report Details", value: `"${detailsOption.value}"`, inline: false })
+          }
         } else {
           const formattedArgs = args.map((opt: any) => `${opt.name}: "${opt.value}"`).join("\n")
           if (formattedArgs) {

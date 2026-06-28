@@ -17,6 +17,8 @@ const envSchema = z.object({
   DISCORD_CLIENT_SECRET: z.string().or(z.literal("")),
   DISCORD_REDIRECT_URI: z.string().or(z.literal("")),
   GROQ_API_KEY: z.string().or(z.literal("")),
+  GITHUB_REPO_URL: z.string().url().default("https://github.com/ShivaKumarS-code/Discord-Slash-Command-Bot"),
+  DASHBOARD_URL: z.string().url().default("http://localhost:3000"),
   BACKEND_CORS_ORIGINS: z.preprocess((val) => {
     if (typeof val === "string") {
       try {

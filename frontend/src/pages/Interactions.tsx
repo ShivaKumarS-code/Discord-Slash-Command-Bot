@@ -133,11 +133,20 @@ export default function Interactions() {
     if (!args) return <span className="text-slate-400 font-normal">-</span>
     if (Array.isArray(args)) {
       const textOption = args.find((o: any) => o.name === "text")
-      return textOption ? (
-        <span className="font-semibold text-slate-800">"{textOption.value}"</span>
-      ) : (
-        <span className="text-slate-400 font-normal">-</span>
-      )
+      if (textOption) {
+        return <span className="font-semibold text-slate-800">"{textOption.value}"</span>
+      }
+
+      const issueOption = args.find((o: any) => o.name === "issue")
+      const detailsOption = args.find((o: any) => o.name === "details")
+      if (issueOption || detailsOption) {
+        return (
+          <div className="flex flex-col gap-0.5">
+            {issueOption && <span className="font-semibold text-slate-800">Issue: {issueOption.value}</span>}
+            {detailsOption && <span className="text-slate-400 font-normal text-[10px]">Details: {detailsOption.value}</span>}
+          </div>
+        )
+      }
     }
     return <span className="text-slate-400 font-normal">-</span>
   }
