@@ -4,11 +4,18 @@ import { env } from "./config/env"
 import { requestLogger } from "./middleware/logger"
 import { errorHandler } from "./middleware/errorHandler"
 import apiRouter from "./routes"
+import { DiscordBotService } from "./services/botService"
 
 const app = express()
 
 // Apply Global Middlewares
-app.use(express.json())
+app.use(
+  express.json({
+    verify: (req: any, res, buf) => {
+      req.rawBody = buf
+    }
+  })
+)
 app.use(express.urlencoded({ extended: true }))
 
 // Enable CORS
@@ -44,4 +51,7 @@ app.use(errorHandler)
 // Start Server
 app.listen(env.PORT, () => {
   console.log(`🚀 Express server running in ${env.NODE_ENV} mode on port ${env.PORT}`)
+  
+  // Initialize Discord Bot Gateway Client Connection
+  DiscordBotService.initialize()
 })

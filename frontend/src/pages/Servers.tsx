@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react"
+import React from "react"
 import PageHeader from "@/components/PageHeader"
 import EmptyState from "@/components/EmptyState"
 import { useAuth } from "@/contexts/AuthContext"
 import { Server, Plus, Calendar, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useNavigate } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
 
 interface ServerConfig {
   logging_enabled: boolean
@@ -23,43 +24,28 @@ interface DiscordServer {
 export default function Servers() {
   const { session } = useAuth()
   const navigate = useNavigate()
-  const [servers, setServers] = useState<DiscordServer[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
-  const fetchConnectedServers = async () => {
-    if (!session?.access_token) return
-
-    try {
-      setLoading(true)
-      setError(null)
+  // Manage server fetches through React Query to cache data and prevent redundant network calls
+  const { data: servers = [], isLoading, error, refetch } = useQuery<DiscordServer[]>({
+    queryKey: ["servers", session?.access_token],
+    queryFn: async () => {
+      if (!session?.access_token) return []
       const response = await fetch("/api/v1/servers", {
         headers: {
           Authorization: `Bearer ${session.access_token}`
         }
       })
       const data = await response.json()
-
       if (!response.ok) {
         throw new Error(data.error?.message || "Failed to retrieve connected servers.")
       }
-
-      setServers(data)
-    } catch (err: any) {
-      console.error("Failed to load servers:", err)
-      setError(err.message || "An error occurred fetching servers.")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchConnectedServers()
-  }, [session])
+      return data
+    },
+    enabled: !!session?.access_token
+  })
 
   const handleConnectServer = () => {
     if (session?.access_token) {
-      // Redirect to backend connect endpoint passing the Supabase access token in the query
       window.location.href = `/api/v1/discord/connect?token=${session.access_token}`
     } else {
       alert("You must be logged in to connect a server.")
@@ -106,7 +92,7 @@ export default function Servers() {
         )}
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <div className="flex justify-center items-center py-20 bg-white border border-slate-200 rounded-xl shadow-xs">
           <div className="flex flex-col items-center gap-3">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-900" />
@@ -116,9 +102,9 @@ export default function Servers() {
       ) : error ? (
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700">
           <h4 className="font-semibold mb-1">Failed to load servers</h4>
-          <p className="text-sm">{error}</p>
+          <p className="text-sm">{(error as Error).message || "An error occurred."}</p>
           <Button
-            onClick={fetchConnectedServers}
+            onClick={() => refetch()}
             className="mt-4 bg-red-100 hover:bg-red-200 text-red-800 border-none px-4 py-2 text-xs rounded-lg cursor-pointer"
           >
             Retry Connection
@@ -142,10 +128,8 @@ export default function Servers() {
               className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col justify-between hover:border-slate-300 transition-colors"
             >
               <div>
-                {/* Header Information Row */}
                 <div className="flex items-start justify-between gap-4 mb-4">
                   <div className="flex items-center gap-3 overflow-hidden">
-                    {/* Server Initials Icon */}
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-white font-extrabold text-xs shadow-xs select-none">
                       {getServerInitials(server.name)}
                     </div>
@@ -157,14 +141,12 @@ export default function Servers() {
                     </div>
                   </div>
 
-                  {/* Status Badge */}
                   <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-green-700 bg-green-50 border border-green-100 px-2 py-0.5 rounded-md shrink-0 select-none">
                     <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
                     <span>Bot Installed</span>
                   </div>
                 </div>
 
-                {/* Configurations Summary Details */}
                 <div className="mt-6 space-y-2 border-t border-slate-100 pt-4 text-xs text-slate-600">
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">AI Configuration:</span>
@@ -179,14 +161,12 @@ export default function Servers() {
                 </div>
               </div>
 
-              {/* Action and Footer Row */}
               <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-1 text-[10px] text-slate-400">
                   <Calendar className="h-3.5 w-3.5" />
                   <span>Added {formatConnectedDate(server.created_at)}</span>
                 </div>
                 
-                {/* Visual Placeholder for Server Specific Panel Redirects */}
                 <Button
                   variant="outline"
                   size="sm"

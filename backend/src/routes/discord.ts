@@ -2,6 +2,10 @@ import { Router } from "express"
 import DiscordService from "../services/discordService"
 import { supabaseAdmin } from "../integrations/supabase"
 import { prisma } from "../dependencies/prisma"
+import { requireAuth } from "../middleware/auth"
+import verifyDiscordSignature from "../middleware/signatureVerification"
+import InteractionService from "../services/interactionService"
+import { env } from "../config/env"
 
 const router = Router()
 
@@ -164,6 +168,83 @@ router.get("/callback", async (req, res) => {
       error: {
         status: 500,
         message: err.message || "Failed to process Discord OAuth callback exchange"
+      }
+    })
+  }
+})
+
+/**
+ * POST /api/v1/discord/sync-commands
+ * Synchronizes guild commands (/status and /report) with Discord's REST API.
+ * Expects the local server database UUID in the JSON body: { serverId }.
+ */
+router.post("/sync-commands", requireAuth, async (req, res) => {
+  const { serverId } = req.body
+
+  if (!serverId) {
+    res.status(400).json({
+      error: {
+        status: 400,
+        message: "Bad Request: Missing serverId parameter"
+      }
+    })
+    return
+  }
+
+  try {
+    // Resolve the server verifying ownership
+    const server = await prisma.server.findFirst({
+      where: {
+        id: serverId,
+        owner_id: req.user!.id
+      }
+    })
+
+    if (!server) {
+      res.status(404).json({
+        error: {
+          status: 404,
+          message: "Server not found or access denied"
+        }
+      })
+      return
+    }
+
+    const guildIdStr = server.discord_guild_id.toString()
+    
+    // Register commands via Discord REST API
+    await DiscordService.syncGuildCommands(guildIdStr)
+
+    res.json({
+      success: true,
+      message: "Slash commands synced successfully."
+    })
+  } catch (err: any) {
+    console.error("❌ Guild command synchronization failed:", err)
+    res.status(500).json({
+      error: {
+        status: 500,
+        message: err.message || "Failed to sync command overrides with Discord"
+      }
+    })
+  }
+})
+
+/**
+ * POST /api/v1/discord/interactions
+ * Webhook endpoint that receives incoming notifications from Discord.
+ * Protected by Ed25519 signature checks.
+ */
+router.post("/interactions", verifyDiscordSignature, async (req, res) => {
+  try {
+    const response = await InteractionService.processInteraction(req.body)
+    res.json(response)
+  } catch (err: any) {
+    console.error("❌ Webhook interaction execution failed:", err)
+    res.status(500).json({
+      error: {
+        status: 500,
+        message: err.message || "Failed to process incoming interaction webhook"
       }
     })
   }

@@ -12,6 +12,7 @@ declare global {
         email: string
         display_name: string | null
       }
+      rawBody?: Buffer
     }
   }
 }

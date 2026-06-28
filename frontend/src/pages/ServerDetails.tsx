@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react"
 import { useParams, Link } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
-import { ArrowLeft, Calendar, Server, Cpu, RefreshCw, Terminal, ShieldAlert, CheckCircle, Save, Trash2, X } from "lucide-react"
+import { ArrowLeft, Calendar, RefreshCw, ShieldAlert, CheckCircle, Save, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 interface ServerConfig {
   logging_enabled: boolean
@@ -35,16 +36,18 @@ interface ChannelOption {
 export default function ServerDetails() {
   const { serverId } = useParams<{ serverId: string }>()
   const { session } = useAuth()
-  const [server, setServer] = useState<DiscordServer | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  
   const [activeTab, setActiveTab] = useState<"general" | "mirroring" | "commands" | "permissions">("general")
 
   // Disconnect modal state
   const [showDisconnectModal, setShowDisconnectModal] = useState(false)
 
+  // Sync commands state
+  const [syncingCommands, setSyncingCommands] = useState(false)
+  const [syncSuccess, setSyncSuccess] = useState(false)
+
   // Mirroring tab state
-  const [channels, setChannels] = useState<ChannelOption[]>([])
   const [loggingEnabled, setLoggingEnabled] = useState(true)
   const [mirrorChannelId, setMirrorChannelId] = useState<string>("")
   const [savingMirror, setSavingMirror] = useState(false)
@@ -63,77 +66,94 @@ export default function ServerDetails() {
   const [savingPermissions, setSavingPermissions] = useState(false)
   const [permissionsSuccess, setPermissionsSuccess] = useState(false)
 
-  const fetchServerDetails = async () => {
-    if (!session?.access_token || !serverId) return
-
-    try {
-      setLoading(true)
-      setError(null)
+  // 1. Fetch server details using TanStack Query
+  const { data: server, isLoading: isServerLoading, error: serverError } = useQuery<DiscordServer | null>({
+    queryKey: ["serverDetails", serverId, session?.access_token],
+    queryFn: async () => {
+      if (!session?.access_token || !serverId) return null
       const response = await fetch(`/api/v1/servers/${serverId}`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`
         }
       })
       const data = await response.json()
-
       if (!response.ok) {
         throw new Error(data.error?.message || "Failed to retrieve server details.")
       }
+      return data
+    },
+    enabled: !!session?.access_token && !!serverId
+  })
 
-      setServer(data)
-
-      // Initialize mirroring state from DB config
-      if (data.config) {
-        setLoggingEnabled(data.config.logging_enabled)
-        setMirrorChannelId(data.config.mirror_channel_id || "")
-      }
-
-      // Initialize commands configs, merging defaults with DB records
-      const defaultCommands = [
-        { command_name: "report", enabled: true, ai_enabled: true, mirror_enabled: true },
-        { command_name: "status", enabled: true, ai_enabled: false, mirror_enabled: true }
-      ]
-
-      const mergedCommands = defaultCommands.map((def) => {
-        const dbConfig = data.command_configs?.find((db: CommandConfig) => db.command_name === def.command_name)
-        return dbConfig ? { ...def, ...dbConfig } : def
-      })
-
-      setCommandsList(mergedCommands)
-    } catch (err: any) {
-      console.error(err)
-      setError(err.message || "An error occurred fetching server details.")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchChannels = async () => {
-    if (!session?.access_token || !serverId) return
-    try {
+  // 2. Fetch channels list using TanStack Query
+  const { data: channels = [] } = useQuery<ChannelOption[]>({
+    queryKey: ["serverChannels", serverId, session?.access_token],
+    queryFn: async () => {
+      if (!session?.access_token || !serverId) return []
       const response = await fetch(`/api/v1/servers/${serverId}/channels`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`
         }
       })
       const data = await response.json()
-      if (response.ok) {
-        setChannels(data)
+      if (!response.ok) return []
+      return data
+    },
+    enabled: !!session?.access_token && !!serverId && activeTab === "mirroring"
+  })
+
+  // Synchronize local form states when the cached server data loads or changes
+  useEffect(() => {
+    if (server) {
+      if (server.config) {
+        setLoggingEnabled(server.config.logging_enabled)
+        setMirrorChannelId(server.config.mirror_channel_id || "")
       }
-    } catch (err) {
-      console.error("Failed to fetch channels:", err)
+
+      const defaultCommands = [
+        { command_name: "report", enabled: true, ai_enabled: true, mirror_enabled: true },
+        { command_name: "status", enabled: true, ai_enabled: false, mirror_enabled: true }
+      ]
+
+      const mergedCommands = defaultCommands.map((def) => {
+        const dbConfig = server.command_configs?.find((db) => db.command_name === def.command_name)
+        return dbConfig ? { ...def, ...dbConfig } : def
+      })
+
+      setCommandsList(mergedCommands)
+    }
+  }, [server])
+
+  // Sync Slash Commands trigger
+  const handleSyncCommands = async () => {
+    if (!session?.access_token || !serverId) return
+
+    try {
+      setSyncingCommands(true)
+      setSyncSuccess(false)
+      const response = await fetch("/api/v1/discord/sync-commands", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ serverId })
+      })
+
+      if (!response.ok) {
+        const errData = await response.json()
+        throw new Error(errData.error?.message || "Failed to synchronize slash commands.")
+      }
+
+      setSyncSuccess(true)
+      setTimeout(() => setSyncSuccess(false), 3000)
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || "Error synchronizing slash commands.")
+    } finally {
+      setSyncingCommands(false)
     }
   }
-
-  useEffect(() => {
-    fetchServerDetails()
-  }, [session, serverId])
-
-  useEffect(() => {
-    if (activeTab === "mirroring") {
-      fetchChannels()
-    }
-  }, [activeTab])
 
   // Save Mirroring Config
   const handleSaveMirrorConfig = async (e: React.FormEvent) => {
@@ -159,6 +179,11 @@ export default function ServerDetails() {
         const errData = await response.json()
         throw new Error(errData.error?.message || "Failed to update mirror config.")
       }
+
+      // Invalidate the cache to synchronize updates globally without browser focus triggers
+      queryClient.invalidateQueries({ queryKey: ["serverDetails", serverId] })
+      queryClient.invalidateQueries({ queryKey: ["servers"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] })
 
       setMirrorSuccess(true)
       setTimeout(() => setMirrorSuccess(false), 3000)
@@ -193,8 +218,10 @@ export default function ServerDetails() {
         throw new Error(errData.error?.message || "Failed to update commands configurations.")
       }
 
-      const updatedCommands = await response.json()
-      setCommandsList(updatedCommands)
+      // Sync backend updates back into the query cache
+      queryClient.invalidateQueries({ queryKey: ["serverDetails", serverId] })
+      queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] })
+
       setCommandsSuccess(true)
       setTimeout(() => setCommandsSuccess(false), 3000)
     } catch (err) {
@@ -205,7 +232,6 @@ export default function ServerDetails() {
     }
   }
 
-  // Save Permissions Config
   const handleSavePermissions = () => {
     setSavingPermissions(true)
     setPermissionsSuccess(false)
@@ -247,7 +273,7 @@ export default function ServerDetails() {
       .toUpperCase()
   }
 
-  if (loading) {
+  if (isServerLoading) {
     return (
       <div className="flex justify-center items-center py-20 bg-white border border-slate-200 rounded-xl shadow-xs">
         <div className="flex flex-col items-center gap-3">
@@ -258,7 +284,7 @@ export default function ServerDetails() {
     )
   }
 
-  if (error || !server) {
+  if (serverError || !server) {
     return (
       <div className="space-y-6">
         <Link to="/servers" className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors">
@@ -267,7 +293,7 @@ export default function ServerDetails() {
         </Link>
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700">
           <h4 className="font-semibold mb-1">Failed to load server configurations</h4>
-          <p className="text-sm">{error || "Server details not found."}</p>
+          <p className="text-sm">{(serverError as Error)?.message || "Server details not found."}</p>
         </div>
       </div>
     )
@@ -357,7 +383,16 @@ export default function ServerDetails() {
                 </div>
               </div>
 
-              <div className="border-t border-slate-100 pt-6">
+              <div className="border-t border-slate-100 pt-6 flex flex-wrap items-center gap-3">
+                <Button
+                  onClick={handleSyncCommands}
+                  disabled={syncingCommands}
+                  className="bg-slate-900 hover:bg-slate-800 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 cursor-pointer shadow-xs text-xs"
+                >
+                  <RefreshCw className={`h-4 w-4 ${syncingCommands ? "animate-spin" : ""}`} />
+                  <span>{syncingCommands ? "Syncing..." : "Sync Slash Commands"}</span>
+                </Button>
+
                 <Button
                   onClick={() => setShowDisconnectModal(true)}
                   className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-4 py-2 text-xs font-semibold rounded-lg cursor-pointer flex items-center gap-2"
@@ -365,6 +400,13 @@ export default function ServerDetails() {
                   <Trash2 className="h-4 w-4" />
                   <span>Disconnect Server</span>
                 </Button>
+
+                {syncSuccess && (
+                  <span className="text-xs text-green-600 font-semibold flex items-center gap-1 animate-fade-in">
+                    <CheckCircle className="h-4 w-4" />
+                    <span>Commands synced!</span>
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -377,7 +419,6 @@ export default function ServerDetails() {
               </div>
 
               <div className="space-y-4">
-                {/* Mirroring enabled toggle */}
                 <div className="flex items-center justify-between border border-slate-200 rounded-xl p-4">
                   <div>
                     <label htmlFor="logging-toggle" className="text-xs font-bold text-slate-800">Enable Mirroring Logs</label>
@@ -392,7 +433,6 @@ export default function ServerDetails() {
                   />
                 </div>
 
-                {/* Mirror Channel selection */}
                 {loggingEnabled && (
                   <div className="space-y-2">
                     <label htmlFor="mirror-channel" className="text-xs font-bold text-slate-800">Target Mirror Channel</label>

@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from "react"
+import React from "react"
 import PageHeader from "@/components/PageHeader"
 import StatCard from "@/components/StatCard"
 import SectionCard from "@/components/SectionCard"
 import EmptyState from "@/components/EmptyState"
 import { useAuth } from "@/contexts/AuthContext"
 import { useNavigate } from "react-router-dom"
-import { Server, Terminal, Activity, Repeat, Eye, History, ArrowRight, Play } from "lucide-react"
+import { Server, Terminal, Activity, Repeat, Eye, History, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useQuery } from "@tanstack/react-query"
 
 interface InteractionLog {
   id: string
@@ -39,39 +40,25 @@ interface DashboardSummary {
 export default function Dashboard() {
   const { session } = useAuth()
   const navigate = useNavigate()
-  const [data, setData] = useState<DashboardSummary | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
-  const fetchDashboardSummary = async () => {
-    if (!session?.access_token) return
-
-    try {
-      setLoading(true)
-      setError(null)
+  // Use TanStack React Query to fetch and cache dashboard summary statistics
+  const { data, isLoading, error, refetch } = useQuery<DashboardSummary | null>({
+    queryKey: ["dashboardSummary", session?.access_token],
+    queryFn: async () => {
+      if (!session?.access_token) return null
       const response = await fetch("/api/v1/dashboard/summary", {
         headers: {
           Authorization: `Bearer ${session.access_token}`
         }
       })
       const summary = await response.json()
-
       if (!response.ok) {
         throw new Error(summary.error?.message || "Failed to retrieve dashboard summary data.")
       }
-
-      setData(summary)
-    } catch (err: any) {
-      console.error(err)
-      setError(err.message || "An error occurred fetching dashboard summary.")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchDashboardSummary()
-  }, [session])
+      return summary
+    },
+    enabled: !!session?.access_token
+  })
 
   const formatLogTime = (dateStr: string) => {
     try {
@@ -100,7 +87,7 @@ export default function Dashboard() {
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center py-20 bg-white border border-slate-200 rounded-xl shadow-xs">
         <div className="flex flex-col items-center gap-3">
@@ -115,9 +102,9 @@ export default function Dashboard() {
     return (
       <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700">
         <h4 className="font-semibold mb-1">Failed to load dashboard summary</h4>
-        <p className="text-sm">{error}</p>
+        <p className="text-sm">{(error as Error).message || "An error occurred."}</p>
         <Button
-          onClick={fetchDashboardSummary}
+          onClick={() => refetch()}
           className="mt-4 bg-red-100 hover:bg-red-200 text-red-800 border-none px-4 py-2 text-xs rounded-lg cursor-pointer"
         >
           Retry Load

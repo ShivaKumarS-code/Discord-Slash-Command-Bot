@@ -111,5 +111,52 @@ export class DiscordService {
 
     return data
   }
+
+  /**
+   * Registers slash commands (/status and /report) for a specific Discord guild server.
+   */
+  static async syncGuildCommands(guildId: string): Promise<any> {
+    const clientId = env.DISCORD_CLIENT_ID
+    const botToken = env.DISCORD_BOT_TOKEN
+
+    const commands = [
+      {
+        name: "status",
+        description: "View active health status metrics of the bot."
+      },
+      {
+        name: "report",
+        description: "Generate a summary report of bot activity.",
+        options: [
+          {
+            name: "text",
+            description: "The report text input content.",
+            type: 3, // String type
+            required: true
+          }
+        ]
+      }
+    ]
+
+    const response = await fetch(
+      `https://discord.com/api/v10/applications/${clientId}/guilds/${guildId}/commands`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bot ${botToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(commands)
+      }
+    )
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to sync guild slash commands with Discord API")
+    }
+
+    return data
+  }
 }
 export default DiscordService
