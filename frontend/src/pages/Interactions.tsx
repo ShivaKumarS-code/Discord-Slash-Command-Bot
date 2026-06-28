@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react"
 import PageHeader from "@/components/PageHeader"
 import ServerSelector, { ServerOption } from "@/components/ServerSelector"
-import { Activity, Search, Calendar, ChevronLeft, ChevronRight, Eye } from "lucide-react"
+import { Activity, Search, ChevronLeft, ChevronRight } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useQuery } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
@@ -129,13 +129,17 @@ export default function Interactions() {
     }
   }
 
-  const renderArgs = (args: any) => {
-    if (!args) return <span className="text-slate-400 font-normal">None</span>
+  const getOriginalReportText = (args: any) => {
+    if (!args) return <span className="text-slate-400 font-normal">-</span>
     if (Array.isArray(args)) {
-      const formatted = args.map((opt: any) => `${opt.name}: "${opt.value}"`).join(", ")
-      return <span className="font-semibold text-slate-800">{formatted}</span>
+      const textOption = args.find((o: any) => o.name === "text")
+      return textOption ? (
+        <span className="font-semibold text-slate-800">"{textOption.value}"</span>
+      ) : (
+        <span className="text-slate-400 font-normal">-</span>
+      )
     }
-    return <span className="font-mono text-[10px] text-slate-500">{JSON.stringify(args)}</span>
+    return <span className="text-slate-400 font-normal">-</span>
   }
 
   const serverOptions: ServerOption[] = servers.map((s) => ({
@@ -225,8 +229,8 @@ export default function Interactions() {
                   <th className="px-6 py-4">Server</th>
                   <th className="px-6 py-4">Command</th>
                   <th className="px-6 py-4">Discord User</th>
-                  <th className="px-6 py-4">Arguments</th>
-                  <th className="px-6 py-4">Interaction ID</th>
+                  <th className="px-6 py-4">Original Report</th>
+                  <th className="px-6 py-4">AI Summary</th>
                   <th className="px-6 py-4 text-center">Status</th>
                 </tr>
               </thead>
@@ -239,7 +243,7 @@ export default function Interactions() {
                     <td className="px-6 py-4 font-semibold text-slate-900 truncate max-w-[120px]">
                       {log.server_name}
                     </td>
-                    <td className="px-6 py-4 font-mono font-bold text-slate-950">
+                    <td className="px-6 py-4 font-mono font-bold text-slate-950 whitespace-nowrap">
                       /{log.command}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -248,11 +252,11 @@ export default function Interactions() {
                         <span className="font-mono text-[9px] text-slate-400">ID: {log.discord_user_id}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 truncate max-w-[160px]">
-                      {renderArgs(log.arguments)}
+                    <td className="px-6 py-4 truncate max-w-[220px]">
+                      {getOriginalReportText(log.arguments)}
                     </td>
-                    <td className="px-6 py-4 font-mono text-[10px] text-slate-400">
-                      {log.interaction_id}
+                    <td className="px-6 py-4 truncate max-w-[280px]">
+                      {log.ai_summary || <span className="text-slate-400 font-normal">-</span>}
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span className={`inline-block px-2.5 py-0.5 rounded-md border text-[10px] font-bold ${getStatusColor(log.status)}`}>

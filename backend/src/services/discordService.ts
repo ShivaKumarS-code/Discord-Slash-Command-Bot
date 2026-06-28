@@ -125,6 +125,10 @@ export class DiscordService {
         description: "View active health status metrics of the bot."
       },
       {
+        name: "about",
+        description: "Learn more about this Discord bot and its creator."
+      },
+      {
         name: "report",
         description: "Generate a summary report of bot activity.",
         options: [

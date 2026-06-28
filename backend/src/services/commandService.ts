@@ -1,6 +1,7 @@
 import { prisma } from "../dependencies/prisma"
 import { InteractionStatus, ActionType, ActionStatus, Prisma } from "@prisma/client"
 import { env } from "../config/env"
+import AIService from "./aiService"
 
 /**
  * Service managing execution logic for all incoming slash commands.
@@ -54,8 +55,19 @@ export class CommandService {
     // Resolve command configuration
     let cmdConfig = server.command_configs?.[0] || null
 
-    // If config doesn't exist in DB, assume standard default parameters
-    if (!cmdConfig) {
+    if (commandName === "about") {
+      // Force /about command configuration: always enabled, no AI, no mirroring
+      cmdConfig = {
+        id: "",
+        server_id: server.id,
+        command_name: "about",
+        enabled: true,
+        ai_enabled: false,
+        mirror_enabled: false,
+        created_at: new Date(),
+        updated_at: new Date()
+      }
+    } else if (!cmdConfig) {
       cmdConfig = {
         id: "",
         server_id: server.id,
@@ -78,49 +90,98 @@ export class CommandService {
     const isMirrorEnabled = cmdConfig.mirror_enabled
     const args = options || null
 
-    let responseText = ""
-
-    // 4. Command Execution / AI Processing
-    if (isAiEnabled) {
-      // Simulate/perform AI processing (or call Groq API in the future)
-      await new Promise(resolve => setTimeout(resolve, 800))
+    try {
+      let responseText = ""
+      let aiSummary: string | null = null
 
       if (commandName === "status") {
-        responseText = `🟢 Bot status: Online and operational.\n- Configured parameters: AI Overrides: Enabled, Log Mirroring: ${isMirrorEnabled ? "Active" : "Disabled"}.`
+        responseText = this.formatStatusResponse()
+      } else if (commandName === "about") {
+        responseText = this.formatAboutResponse()
       } else if (commandName === "report") {
         const textOption = args?.find((o: any) => o.name === "text")
         const textVal = textOption?.value || "No content supplied."
-        responseText = `🤖 [AI Assisted Overview]\nReport Summary: The bot has successfully acknowledged your report request.\n- Content: "${textVal}"\n- Configured parameters: AI Processing: Completed, Log Mirroring: ${isMirrorEnabled ? "Active" : "Disabled"}.`
+        
+        if (isAiEnabled) {
+          // Trigger Groq AI service call to summarize the text
+          aiSummary = await AIService.summarizeReport(textVal)
+          responseText = this.formatAiReportResponse(textVal, aiSummary)
+        } else {
+          responseText = this.formatStandardReportResponse(textVal)
+        }
       } else {
         responseText = `❌ Error: Unknown slash command \`/${commandName}\`.`
       }
-    } else {
-      // Fast path (No AI)
-      if (commandName === "status") {
-        responseText = `🟢 Bot status: Online and operational.\n- Configured parameters: AI Overrides: Disabled, Log Mirroring: ${isMirrorEnabled ? "Active" : "Disabled"}.`
-      } else if (commandName === "report") {
-        const textOption = args?.find((o: any) => o.name === "text")
-        const textVal = textOption?.value || "No content supplied."
-        responseText = `📥 Report received and logged. Command configuration mapping verified.\n- Content: "${textVal}"\n- Configured parameters: AI Processing: Disabled, Log Mirroring: ${isMirrorEnabled ? "Pending" : "Disabled"}.`
-      } else {
-        responseText = `❌ Error: Unknown slash command \`/${commandName}\`.`
+
+      // ALWAYS update the original deferred response using Discord webhooks API
+      await this.updateDeferredResponse(interactionToken, responseText)
+
+      // Trigger logging and mirroring
+      this.runLoggingAndMirroringPipeline(
+        interactionId,
+        server,
+        discordUserId,
+        commandName,
+        args,
+        responseText,
+        isMirrorEnabled,
+        InteractionStatus.SUCCESS,
+        aiSummary
+      )
+    } catch (err: any) {
+      console.error("❌ Error executing command:", err)
+      
+      // Update Discord with the failure response
+      try {
+        await this.updateDeferredResponse(
+          interactionToken,
+          `❌ An error occurred executing the command: ${err.message || "Internal failure"}`
+        )
+      } catch (patchErr) {
+        console.error("Failed to send error message back to Discord:", patchErr)
       }
+
+      // Log failure state
+      this.runLoggingAndMirroringPipeline(
+        interactionId,
+        server,
+        discordUserId,
+        commandName,
+        args,
+        `Error: ${err.message || "Internal failure"}`,
+        isMirrorEnabled,
+        InteractionStatus.FAILED,
+        null
+      )
     }
+  }
 
-    // 5. Update Discord deferred response (PATCH)
-    await this.updateDeferredResponse(interactionToken, responseText)
+  /**
+   * Helper formatting status command responses.
+   */
+  private static formatStatusResponse(): string {
+    return `🟢 **Bot Status**\n\nEverything is running normally.\n\n• Status: Online\n• Commands Available: 3`
+  }
 
-    // 6. Trigger database logging and mirroring
-    await this.runLoggingAndMirroringPipeline(
-      interactionId,
-      server,
-      discordUserId,
-      commandName,
-      args,
-      responseText,
-      isMirrorEnabled,
-      InteractionStatus.SUCCESS
-    )
+  /**
+   * Helper formatting about command responses.
+   */
+  private static formatAboutResponse(): string {
+    return `ℹ️ **About This Bot**\n\nHi! I'm a command bot created by Shiva Kumar S for a Full Stack Intern Assessment. Want to know more about me?\n\n🔗 **Visit my repository**: https://github.com/ShivaKumarS-code/Discord-Slash-Command-Bot`
+  }
+
+  /**
+   * Helper formatting report responses without AI summaries.
+   */
+  private static formatStandardReportResponse(reportText: string): string {
+    return `📥 **Report Received**\n\n**Original Report**\n${reportText}\n\nYour report has been successfully logged.`
+  }
+
+  /**
+   * Helper formatting report responses with AI summaries.
+   */
+  private static formatAiReportResponse(reportText: string, aiSummary: string): string {
+    return `🤖 **AI Summary**\n\n**Original Report**\n${reportText}\n\n**Summary**\n${aiSummary}\n\nYour report has been successfully logged.`
   }
 
   /**
@@ -155,7 +216,8 @@ export class CommandService {
     args: any,
     responseText: string,
     isMirrorEnabled: boolean,
-    status: InteractionStatus
+    status: InteractionStatus,
+    aiSummary: string | null
   ) {
     try {
       // 1. Create the interaction log and action logs
@@ -167,7 +229,7 @@ export class CommandService {
           command: commandName,
           arguments: args ? JSON.parse(JSON.stringify(args)) : Prisma.DbNull,
           status,
-          ai_summary: null,
+          ai_summary: aiSummary,
           ai_tags: Prisma.DbNull,
           action_logs: {
             create: [
@@ -187,13 +249,14 @@ export class CommandService {
         }
       })
 
-      // 2. Perform log channel mirroring if enabled
+      // 2. Perform log channel mirroring if enabled (bypass for status and about commands)
       const isLoggingEnabled = server.config?.logging_enabled ?? false
+      const bypassMirror = commandName === "status" || commandName === "about"
       const mirrorChannelId = server.config?.mirror_channel_id ? server.config.mirror_channel_id.toString() : null
 
-      if (isLoggingEnabled && isMirrorEnabled && mirrorChannelId) {
+      if (isLoggingEnabled && isMirrorEnabled && !bypassMirror && mirrorChannelId) {
         // Run mirroring send asynchronously in the background
-        await this.sendMirrorNotification(log.id, server.name, commandName, discordUserId, status, mirrorChannelId, args)
+        await this.sendMirrorNotification(log.id, server.name, commandName, discordUserId, status, mirrorChannelId, args, aiSummary)
       }
     } catch (err: any) {
       console.error("❌ Error in background logging/mirroring pipeline:", err)
@@ -211,7 +274,8 @@ export class CommandService {
     discordUserId: string,
     status: InteractionStatus,
     mirrorChannelId: string,
-    args: any
+    args: any,
+    aiSummary: string | null
   ) {
     try {
       const fields: any[] = [
@@ -232,6 +296,11 @@ export class CommandService {
             fields.push({ name: "Arguments", value: formattedArgs, inline: false })
           }
         }
+      }
+
+      // Add AI Summary field if generated
+      if (aiSummary) {
+        fields.push({ name: "AI Summary", value: aiSummary, inline: false })
       }
 
       fields.push({ name: "Timestamp", value: new Date().toISOString(), inline: false })
