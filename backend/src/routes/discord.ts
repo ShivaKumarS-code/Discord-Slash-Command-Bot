@@ -5,6 +5,7 @@ import { prisma } from "../dependencies/prisma"
 import { requireAuth } from "../middleware/auth"
 import verifyDiscordSignature from "../middleware/signatureVerification"
 import InteractionService from "../services/interactionService"
+import CommandService from "../services/commandService"
 import { env } from "../config/env"
 
 const router = Router()
@@ -237,16 +238,41 @@ router.post("/sync-commands", requireAuth, async (req, res) => {
  */
 router.post("/interactions", verifyDiscordSignature, async (req, res) => {
   try {
-    const response = await InteractionService.processInteraction(req.body)
-    res.json(response)
-  } catch (err: any) {
-    console.error("❌ Webhook interaction execution failed:", err)
-    res.status(500).json({
-      error: {
-        status: 500,
-        message: err.message || "Failed to process incoming interaction webhook"
+    const { type } = req.body
+
+    if (type === 1) { // PING
+      res.json({ type: 1 })
+      return
+    }
+
+    if (type === 2) { // APPLICATION_COMMAND
+      const ackStart = Date.now()
+      res.json({ type: 5 }) // Return deferred response immediately
+      console.log(`⏱️ [${Date.now() - ackStart}ms] Deferred acknowledgement (type 5) sent to Discord`)
+
+      // Run execution pipeline in the background
+      CommandService.handleCommand(req.body).catch((err) => {
+        console.error("❌ Background command execution failed:", err)
+      })
+      return
+    }
+
+    res.json({
+      type: 4,
+      data: {
+        content: "⚠️ Unhandled interaction type received."
       }
     })
+  } catch (err: any) {
+    console.error("❌ Webhook interaction execution failed:", err)
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: {
+          status: 500,
+          message: err.message || "Failed to process incoming interaction webhook"
+        }
+      })
+    }
   }
 })
 

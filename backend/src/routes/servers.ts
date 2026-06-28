@@ -1,6 +1,7 @@
 import { Router } from "express"
 import { requireAuth } from "../middleware/auth"
 import { prisma } from "../dependencies/prisma"
+import { env } from "../config/env"
 
 const router = Router()
 
@@ -136,23 +137,67 @@ router.get("/:id", requireAuth, async (req, res) => {
 
 /**
  * GET /api/v1/servers/:id/channels
- * Returns a list of text channels inside the Discord server guild.
+ * Returns the live list of text channels inside the Discord guild.
  */
 router.get("/:id/channels", requireAuth, async (req, res) => {
-  // Enforce authentication
   if (!req.user) {
-    res.status(401).json({ error: { message: "Unauthorized" } })
+    res.status(401).json({ error: { message: "Unauthorized: Missing user context" } })
     return
   }
 
-  // Under a future phase this calls the Discord API.
-  // For now, it returns mock channels.
-  res.json([
-    { id: "1", name: "general" },
-    { id: "2", name: "logs" },
-    { id: "3", name: "bot-spam" },
-    { id: "4", name: "announcements" }
-  ])
+  const { id } = req.params
+
+  try {
+    const server = await prisma.server.findFirst({
+      where: { id, owner_id: req.user.id }
+    })
+
+    if (!server) {
+      res.status(404).json({ error: { message: "Server not found or access denied" } })
+      return
+    }
+
+    const discordGuildId = server.discord_guild_id.toString()
+    const botToken = env.DISCORD_BOT_TOKEN
+
+    const response = await fetch(
+      `https://discord.com/api/v10/guilds/${discordGuildId}/channels`,
+      {
+        headers: {
+          Authorization: `Bot ${botToken}`
+        }
+      }
+    )
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      console.error(`Failed to fetch channels for guild ${discordGuildId} from Discord:`, data)
+      throw new Error(data.message || "Failed to fetch channels from Discord API")
+    }
+
+    if (!Array.isArray(data)) {
+      throw new Error("Invalid response format from Discord API")
+    }
+
+    // Filter for Text channels (type: 0)
+    const textChannels = data
+      .filter((ch: any) => ch.type === 0)
+      .map((ch: any) => ({
+        id: ch.id,
+        name: ch.name
+      }))
+
+    res.json(textChannels)
+  } catch (err: any) {
+    console.error(`Error retrieving Discord channels for server ${id}:`, err)
+    res.status(500).json({
+      error: {
+        status: 500,
+        message: err.message || "Failed to load Discord server channels list"
+      }
+    })
+  }
 })
 
 /**

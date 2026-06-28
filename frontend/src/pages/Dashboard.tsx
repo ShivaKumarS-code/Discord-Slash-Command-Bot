@@ -5,7 +5,7 @@ import SectionCard from "@/components/SectionCard"
 import EmptyState from "@/components/EmptyState"
 import { useAuth } from "@/contexts/AuthContext"
 import { useNavigate } from "react-router-dom"
-import { Server, Terminal, Activity, Repeat, Eye, History, ArrowRight } from "lucide-react"
+import { Server, Terminal, Activity, Repeat, Eye, History, ArrowRight, CheckCircle2, AlertTriangle, List, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useQuery } from "@tanstack/react-query"
 
@@ -33,6 +33,10 @@ interface DashboardSummary {
   registeredCommands: number
   todayInteractions: number
   activeMirrors: number
+  successfulCommands: number
+  failedCommands: number
+  totalInteractionLogs: number
+  totalActionLogs: number
   recentInteractions: InteractionLog[]
   recentActions: ActionLog[]
 }
@@ -173,7 +177,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Metrics Cards Grid - 4 Columns */}
+      {/* Metrics Cards Grid - Row 1 (Server & Configurations) */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Connected Servers"
@@ -198,6 +202,34 @@ export default function Dashboard() {
           value={data.activeMirrors.toString()}
           icon={Repeat}
           description="Log forwarding channels"
+        />
+      </div>
+
+      {/* Metrics Cards Grid - Row 2 (Logs & Executions) */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          title="Successful Commands"
+          value={data.successfulCommands.toString()}
+          icon={CheckCircle2}
+          description="Successful slash replies"
+        />
+        <StatCard
+          title="Failed Commands"
+          value={data.failedCommands.toString()}
+          icon={AlertTriangle}
+          description="Rejected/Failed executions"
+        />
+        <StatCard
+          title="Total Interaction Logs"
+          value={data.totalInteractionLogs.toString()}
+          icon={List}
+          description="Logged command sessions"
+        />
+        <StatCard
+          title="Total Action Logs"
+          value={data.totalActionLogs.toString()}
+          icon={ShieldCheck}
+          description="Logged backend actions"
         />
       </div>
 

@@ -38,7 +38,7 @@ export default function ServerDetails() {
   const { session } = useAuth()
   const queryClient = useQueryClient()
   
-  const [activeTab, setActiveTab] = useState<"general" | "mirroring" | "commands" | "permissions">("general")
+  const [activeTab, setActiveTab] = useState<"general" | "mirroring" | "permissions">("general")
 
   // Disconnect modal state
   const [showDisconnectModal, setShowDisconnectModal] = useState(false)
@@ -53,10 +53,8 @@ export default function ServerDetails() {
   const [savingMirror, setSavingMirror] = useState(false)
   const [mirrorSuccess, setMirrorSuccess] = useState(false)
 
-  // Commands tab state
+  // Commands state (retained for permissions tab configuration)
   const [commandsList, setCommandsList] = useState<CommandConfig[]>([])
-  const [savingCommands, setSavingCommands] = useState(false)
-  const [commandsSuccess, setCommandsSuccess] = useState(false)
 
   // Permissions tab state (local/mock config)
   const [permissionsMap, setPermissionsMap] = useState<Record<string, string>>({
@@ -195,43 +193,6 @@ export default function ServerDetails() {
     }
   }
 
-  // Save Commands Config
-  const handleSaveCommandsConfig = async () => {
-    if (!session?.access_token || !serverId) return
-
-    try {
-      setSavingCommands(true)
-      setCommandsSuccess(false)
-      const response = await fetch(`/api/v1/servers/${serverId}/commands`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({
-          commands: commandsList
-        })
-      })
-
-      if (!response.ok) {
-        const errData = await response.json()
-        throw new Error(errData.error?.message || "Failed to update commands configurations.")
-      }
-
-      // Sync backend updates back into the query cache
-      queryClient.invalidateQueries({ queryKey: ["serverDetails", serverId] })
-      queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] })
-
-      setCommandsSuccess(true)
-      setTimeout(() => setCommandsSuccess(false), 3000)
-    } catch (err) {
-      console.error(err)
-      alert("Error saving command configurations.")
-    } finally {
-      setSavingCommands(false)
-    }
-  }
-
   const handleSavePermissions = () => {
     setSavingPermissions(true)
     setPermissionsSuccess(false)
@@ -240,15 +201,6 @@ export default function ServerDetails() {
       setPermissionsSuccess(true)
       setTimeout(() => setPermissionsSuccess(false), 3000)
     }, 800)
-  }
-
-  const handleCommandToggle = (index: number, field: keyof CommandConfig) => {
-    const updated = [...commandsList]
-    updated[index] = {
-      ...updated[index],
-      [field]: !updated[index][field]
-    }
-    setCommandsList(updated)
   }
 
   const formatConnectedDate = (dateStr: string) => {
@@ -337,7 +289,7 @@ export default function ServerDetails() {
       <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
         {/* Tab Headers */}
         <div className="flex border-b border-slate-100 bg-slate-50/50 overflow-x-auto">
-          {(["general", "mirroring", "commands", "permissions"] as const).map((tab) => (
+          {(["general", "mirroring", "permissions"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -471,91 +423,6 @@ export default function ServerDetails() {
                 )}
               </div>
             </form>
-          )}
-
-          {activeTab === "commands" && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="font-bold text-slate-900 text-base">Slash Commands Override</h3>
-                <p className="text-xs text-slate-400 mt-1">Configure individual override switches, AI automations, and mirror parameters.</p>
-              </div>
-
-              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-                <table className="min-w-full divide-y divide-slate-100 text-xs text-left">
-                  <thead>
-                    <tr className="bg-slate-50/50 text-slate-400 font-bold uppercase tracking-wider select-none">
-                      <th className="px-6 py-3.5">Command</th>
-                      <th className="px-6 py-3.5">Status</th>
-                      <th className="px-6 py-3.5 text-center">Use AI Prompt</th>
-                      <th className="px-6 py-3.5 text-center">Mirror Log</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700 font-semibold">
-                    {commandsList.map((cmd, idx) => (
-                      <tr key={cmd.command_name} className="hover:bg-slate-50/20 transition-colors">
-                        <td className="px-6 py-4">
-                          <p className="font-mono text-slate-900 font-bold">/{cmd.command_name}</p>
-                          <p className="text-[10px] text-slate-400 font-medium mt-0.5">
-                            {cmd.command_name === "report" 
-                              ? "Generate a summary report of bot activity." 
-                              : "View active health status metrics."}
-                          </p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <label className="relative inline-flex items-center cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={cmd.enabled}
-                              onChange={() => handleCommandToggle(idx, "enabled")}
-                              className="sr-only peer"
-                            />
-                            <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-slate-900"></div>
-                            <span className="ml-2 text-xs font-semibold text-slate-600">
-                              {cmd.enabled ? "Enabled" : "Disabled"}
-                            </span>
-                          </label>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <input
-                            type="checkbox"
-                            checked={cmd.ai_enabled}
-                            disabled={!cmd.enabled}
-                            onChange={() => handleCommandToggle(idx, "ai_enabled")}
-                            className="h-4 w-4 rounded-md border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer disabled:cursor-not-allowed"
-                          />
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <input
-                            type="checkbox"
-                            checked={cmd.mirror_enabled}
-                            disabled={!cmd.enabled}
-                            onChange={() => handleCommandToggle(idx, "mirror_enabled")}
-                            className="h-4 w-4 rounded-md border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer disabled:cursor-not-allowed"
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex items-center gap-4 pt-4 border-t border-slate-100">
-                <Button
-                  onClick={handleSaveCommandsConfig}
-                  disabled={savingCommands}
-                  className="bg-slate-900 hover:bg-slate-800 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 cursor-pointer shadow-xs text-xs"
-                >
-                  <Save className="h-4 w-4" />
-                  <span>{savingCommands ? "Saving..." : "Save Changes"}</span>
-                </Button>
-                {commandsSuccess && (
-                  <span className="text-xs text-green-600 font-semibold flex items-center gap-1 animate-fade-in">
-                    <CheckCircle className="h-4 w-4" />
-                    <span>Configurations saved!</span>
-                  </span>
-                )}
-              </div>
-            </div>
           )}
 
           {activeTab === "permissions" && (

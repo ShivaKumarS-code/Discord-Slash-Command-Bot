@@ -52,7 +52,39 @@ router.get("/summary", requireAuth, async (req, res) => {
       }
     })
 
-    // 5. Fetch 5 most recent interaction logs
+    // 5. Successful commands count
+    const successfulCommands = await prisma.interactionLog.count({
+      where: {
+        server: { owner_id: ownerId },
+        status: "SUCCESS"
+      }
+    })
+
+    // 6. Failed commands count
+    const failedCommands = await prisma.interactionLog.count({
+      where: {
+        server: { owner_id: ownerId },
+        status: "FAILED"
+      }
+    })
+
+    // 7. Total interaction logs count
+    const totalInteractionLogs = await prisma.interactionLog.count({
+      where: {
+        server: { owner_id: ownerId }
+      }
+    })
+
+    // 8. Total action logs count
+    const totalActionLogs = await prisma.actionLog.count({
+      where: {
+        interaction_log: {
+          server: { owner_id: ownerId }
+        }
+      }
+    })
+
+    // 9. Fetch 5 most recent interaction logs
     const dbRecentInteractions = await prisma.interactionLog.findMany({
       where: {
         server: { owner_id: ownerId }
@@ -64,7 +96,7 @@ router.get("/summary", requireAuth, async (req, res) => {
       }
     })
 
-    // 6. Fetch 5 most recent action logs
+    // 10. Fetch 5 most recent action logs
     const dbRecentActions = await prisma.actionLog.findMany({
       where: {
         interaction_log: {
@@ -115,6 +147,10 @@ router.get("/summary", requireAuth, async (req, res) => {
       registeredCommands,
       todayInteractions,
       activeMirrors,
+      successfulCommands,
+      failedCommands,
+      totalInteractionLogs,
+      totalActionLogs,
       recentInteractions,
       recentActions
     })
