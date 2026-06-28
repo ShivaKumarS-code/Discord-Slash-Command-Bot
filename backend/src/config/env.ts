@@ -11,9 +11,11 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().url().or(z.literal("")),
   SUPABASE_ANON_KEY: z.string().or(z.literal("")),
   SUPABASE_SERVICE_ROLE_KEY: z.string().or(z.literal("")),
-  DISCORD_APPLICATION_ID: z.string().or(z.literal("")),
   DISCORD_PUBLIC_KEY: z.string().or(z.literal("")),
   DISCORD_BOT_TOKEN: z.string().or(z.literal("")),
+  DISCORD_CLIENT_ID: z.string().or(z.literal("")),
+  DISCORD_CLIENT_SECRET: z.string().or(z.literal("")),
+  DISCORD_REDIRECT_URI: z.string().or(z.literal("")),
   GROQ_API_KEY: z.string().or(z.literal("")),
   BACKEND_CORS_ORIGINS: z.preprocess((val) => {
     if (typeof val === "string") {
