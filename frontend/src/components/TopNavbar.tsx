@@ -12,6 +12,9 @@ export function TopNavbar({ onMenuClick }: TopNavbarProps) {
   const location = useLocation()
 
   const getPageTitle = (path: string) => {
+    if (path.startsWith("/servers/")) {
+      return "Server Details"
+    }
     switch (path) {
       case "/":
         return "Dashboard"

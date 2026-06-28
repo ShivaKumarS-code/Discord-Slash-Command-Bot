@@ -3,6 +3,7 @@ import DashboardLayout from "@/components/DashboardLayout"
 import ProtectedRoute from "@/components/ProtectedRoute"
 import Dashboard from "@/pages/Dashboard"
 import Servers from "@/pages/Servers"
+import ServerDetails from "@/pages/ServerDetails"
 import Commands from "@/pages/Commands"
 import Interactions from "@/pages/Interactions"
 import Actions from "@/pages/Actions"
@@ -28,6 +29,10 @@ export const router = createBrowserRouter([
       {
         path: "servers",
         element: <Servers />
+      },
+      {
+        path: "servers/:serverId",
+        element: <ServerDetails />
       },
       {
         path: "commands",

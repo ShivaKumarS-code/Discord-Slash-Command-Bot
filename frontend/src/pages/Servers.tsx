@@ -4,6 +4,7 @@ import EmptyState from "@/components/EmptyState"
 import { useAuth } from "@/contexts/AuthContext"
 import { Server, Plus, Calendar, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useNavigate } from "react-router-dom"
 
 interface ServerConfig {
   logging_enabled: boolean
@@ -21,6 +22,7 @@ interface DiscordServer {
 
 export default function Servers() {
   const { session } = useAuth()
+  const navigate = useNavigate()
   const [servers, setServers] = useState<DiscordServer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -188,7 +190,7 @@ export default function Servers() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => alert("Server configuration options will be implemented in the next phase.")}
+                  onClick={() => navigate(`/servers/${server.id}`)}
                   className="text-xs py-1 px-3 cursor-pointer flex items-center gap-1.5"
                 >
                   <Settings className="h-3.5 w-3.5" />
