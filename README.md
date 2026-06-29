@@ -149,3 +149,57 @@ The application is deployed across the following services:
   - Vercel handles the build configuration and serves the assets globally.
   - Environment variables matching `frontend/.env` (specifically `VITE_API_URL` pointing to your Render backend instance) are configured in the Vercel dashboard.
   - Ensure the Vercel app domain is added to `BACKEND_CORS_ORIGINS` in your backend configuration.
+
+---
+
+## Testing / Evaluation
+
+### Live Demo
+
+- **Link:** https://discord-slash-command-bot.vercel.app
+
+---
+
+### Test Account
+
+Use the following throwaway administrator account to access the dashboard:
+
+```text
+Email: test@demo.com
+Password: t12345
+```
+
+---
+
+### How to test
+
+After inviting the bot:
+
+1. Log in to the dashboard using the test account above.
+2. Navigate to **Connected Servers**.
+3. Select the server you added the bot to. Add the bot if you have not already.
+4. Configure mirroring and command settings if desired.
+5. Test the available slash commands:
+   - `/about`
+   - `/status`
+   - `/report`
+6. Verify that:
+   - AI-generated summaries are returned for reports.
+   - Mirrored messages appear in the configured Discord channel.
+   - Dashboard metrics update correctly.
+   - Interaction Logs capture command executions.
+   - Action History records system events.
+
+---
+
+## Repository Structure
+
+```text
+backend/          Express + TypeScript backend
+frontend/         React + Vite dashboard
+AI_NOTES.md       AI-assisted development notes
+AGENTS.md         AI coding agent instructions
+CLAUDE.md         Claude-specific guidance
+README.md         Project documentation
+```
+
