@@ -162,7 +162,7 @@ router.get("/callback", async (req, res) => {
     console.info(`⚡ Discord Server Connected: ${serverName} (${guildIdStr}) associated with User: ${dbUser.email}`)
 
     // Redirect the user back to the client-side connected servers view
-    res.redirect("http://localhost:3000/servers?connection=success")
+    res.redirect(`${env.DASHBOARD_URL}/servers?connection=success`)
   } catch (err: any) {
     console.error("❌ Discord OAuth callback failure:", err)
     res.status(500).json({
