@@ -20,6 +20,8 @@ interface DiscordServer {
   name: string
   created_at: string
   config: ServerConfig | null
+  enabledCommandCount: number
+  mirrorChannelName: string | null
 }
 
 export default function Servers() {
@@ -149,13 +151,13 @@ export default function Servers() {
 
                 <div className="mt-6 space-y-2 border-t border-slate-100 pt-4 text-xs text-slate-600">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">AI Configuration:</span>
-                    <span className="font-medium text-slate-700">AI Commands: 0 configured</span>
+                    <span className="text-slate-400">Commands Configured:</span>
+                    <span className="font-medium text-slate-700">{server.enabledCommandCount}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Logging & Mirroring:</span>
+                    <span className="text-slate-400">Mirroring:</span>
                     <span className="font-medium text-slate-700">
-                      {server.config?.mirror_channel_id ? `Active (#${server.config.mirror_channel_id})` : "Mirroring: Not configured"}
+                      {server.mirrorChannelName ? `Active (#${server.mirrorChannelName})` : "None"}
                     </span>
                   </div>
                 </div>

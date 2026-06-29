@@ -26,7 +26,7 @@ export class AIService {
           Authorization: `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
+          model: "llama-3.1-8b-instant",
           messages: [
             {
               role: "system",
@@ -45,19 +45,22 @@ export class AIService {
       const data = await response.json()
 
       if (!response.ok) {
-        console.error("❌ Groq API completions request failed:", data)
-        return this.generateFallbackSummary(text)
+        const errMsg = `Groq API completions request failed: ${JSON.stringify(data)}`
+        console.error(`❌ ${errMsg}`)
+        throw new Error(errMsg)
       }
 
       const summary = data.choices?.[0]?.message?.content?.trim()
       if (!summary) {
-        return this.generateFallbackSummary(text)
+        const errMsg = "Empty summary response from Groq completions API"
+        console.error(`❌ ${errMsg}`)
+        throw new Error(errMsg)
       }
 
       return summary
-    } catch (err) {
+    } catch (err: any) {
       console.error("❌ Exception during Groq AI summarization call:", err)
-      return this.generateFallbackSummary(text)
+      throw err
     }
   }
 

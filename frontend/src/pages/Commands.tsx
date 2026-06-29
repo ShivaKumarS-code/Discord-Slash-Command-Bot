@@ -252,7 +252,7 @@ export default function Commands() {
                           onChange={() => handleCommandToggle(idx, "enabled")}
                           className="sr-only peer"
                         />
-                        <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-slate-900"></div>
+                        <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
                         <span className="ml-2 text-xs font-semibold text-slate-600">
                           {cmd.enabled ? "Enabled" : "Disabled"}
                         </span>
@@ -262,7 +262,7 @@ export default function Commands() {
                       <input
                         type="checkbox"
                         checked={cmd.ai_enabled}
-                        disabled={!cmd.enabled}
+                        disabled={!cmd.enabled || cmd.command_name === "status"}
                         onChange={() => handleCommandToggle(idx, "ai_enabled")}
                         className="h-4 w-4 rounded-md border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer disabled:cursor-not-allowed"
                       />

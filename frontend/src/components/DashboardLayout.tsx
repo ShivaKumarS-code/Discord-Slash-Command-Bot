@@ -14,7 +14,7 @@ export function DashboardLayout() {
       {/* Main Content Area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Compact Mobile Header (visible only on mobile/tablet) */}
-        <div className="lg:hidden flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3 shadow-xs">
+        <header className="lg:hidden flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3 shadow-xs">
           <button
             type="button"
             className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 cursor-pointer"
@@ -26,7 +26,7 @@ export function DashboardLayout() {
             Bot Control
           </span>
           <div className="w-9" /> {/* Visual spacing balancing */}
-        </div>
+        </header>
 
         {/* Page Content Viewport */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8">

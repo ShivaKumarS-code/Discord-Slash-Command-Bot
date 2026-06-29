@@ -24,26 +24,69 @@ router.get("/", requireAuth, async (req, res) => {
     const servers = await prisma.server.findMany({
       where: { owner_id: req.user.id },
       include: {
-        config: true
+        config: true,
+        command_configs: true
       }
     })
 
     // BigInt values must be serialized to string before returning in JSON response
-    const formattedServers = servers.map(server => ({
-      id: server.id,
-      discord_guild_id: server.discord_guild_id.toString(),
-      name: server.name,
-      owner_id: server.owner_id,
-      created_at: server.created_at,
-      updated_at: server.updated_at,
-      config: server.config ? {
-        id: server.config.id,
-        server_id: server.config.server_id,
-        mirror_channel_id: server.config.mirror_channel_id?.toString() || null,
-        default_command_channel_id: server.config.default_command_channel_id?.toString() || null,
-        logging_enabled: server.config.logging_enabled,
-        ai_enabled: server.config.ai_enabled
-      } : null
+    const formattedServers = await Promise.all(servers.map(async (server) => {
+      // Calculate enabled commands count using defaults merged with database overrides
+      const defaultCommands = [
+        { command_name: "report", enabled: true },
+        { command_name: "status", enabled: true }
+      ]
+      const merged = defaultCommands.map(def => {
+        const dbConfig = server.command_configs?.find(db => db.command_name === def.command_name)
+        return dbConfig ? { ...def, enabled: dbConfig.enabled } : def
+      })
+      const enabledCommandCount = merged.filter(c => c.enabled).length
+
+      // Get mirror channel name from Discord API if active
+      let mirrorChannelName: string | null = null
+      if (server.config?.logging_enabled && server.config?.mirror_channel_id) {
+        try {
+          const discordGuildId = server.discord_guild_id.toString()
+          const response = await fetch(
+            `https://discord.com/api/v10/guilds/${discordGuildId}/channels`,
+            {
+              headers: {
+                Authorization: `Bot ${env.DISCORD_BOT_TOKEN}`
+              }
+            }
+          )
+          if (response.ok) {
+            const data = await response.json()
+            if (Array.isArray(data)) {
+              const channel = data.find((ch: any) => ch.id === server.config?.mirror_channel_id?.toString())
+              if (channel) {
+                mirrorChannelName = channel.name
+              }
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to fetch channel name for server ${server.id}:`, err)
+        }
+      }
+
+      return {
+        id: server.id,
+        discord_guild_id: server.discord_guild_id.toString(),
+        name: server.name,
+        owner_id: server.owner_id,
+        created_at: server.created_at,
+        updated_at: server.updated_at,
+        enabledCommandCount,
+        mirrorChannelName,
+        config: server.config ? {
+          id: server.config.id,
+          server_id: server.config.server_id,
+          mirror_channel_id: server.config.mirror_channel_id?.toString() || null,
+          default_command_channel_id: server.config.default_command_channel_id?.toString() || null,
+          logging_enabled: server.config.logging_enabled,
+          ai_enabled: server.config.ai_enabled
+        } : null
+      }
     }))
 
     res.json(formattedServers)
@@ -119,8 +162,7 @@ router.get("/:id", requireAuth, async (req, res) => {
         command_name: cmd.command_name,
         enabled: cmd.enabled,
         ai_enabled: cmd.ai_enabled,
-        mirror_enabled: cmd.mirror_enabled,
-        permissions: cmd.permissions
+        mirror_enabled: cmd.mirror_enabled
       }))
     }
 
@@ -296,16 +338,14 @@ router.put("/:id/commands", requireAuth, async (req, res) => {
         update: {
           enabled: cmd.enabled,
           ai_enabled: cmd.ai_enabled,
-          mirror_enabled: cmd.mirror_enabled,
-          permissions: cmd.permissions
+          mirror_enabled: cmd.mirror_enabled
         },
         create: {
           server_id: id,
           command_name: cmd.command_name,
           enabled: cmd.enabled,
           ai_enabled: cmd.ai_enabled,
-          mirror_enabled: cmd.mirror_enabled,
-          permissions: cmd.permissions || "everyone"
+          mirror_enabled: cmd.mirror_enabled
         }
       })
       
@@ -315,8 +355,7 @@ router.put("/:id/commands", requireAuth, async (req, res) => {
         command_name: config.command_name,
         enabled: config.enabled,
         ai_enabled: config.ai_enabled,
-        mirror_enabled: config.mirror_enabled,
-        permissions: config.permissions
+        mirror_enabled: config.mirror_enabled
       })
     }
 

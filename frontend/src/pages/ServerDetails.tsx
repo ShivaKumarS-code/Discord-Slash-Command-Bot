@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useParams, Link } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
-import { ArrowLeft, RefreshCw, ShieldAlert, CheckCircle, Save, Trash2, X } from "lucide-react"
+import { ArrowLeft, RefreshCw, CheckCircle, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CustomDropdown } from "@/components/ui/CustomDropdown"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
@@ -41,10 +41,9 @@ export default function ServerDetails() {
   const { session } = useAuth()
   const queryClient = useQueryClient()
   
-  const [activeTab, setActiveTab] = useState<"general" | "mirroring" | "permissions">("general")
+  const [activeTab, setActiveTab] = useState<"general" | "mirroring">("general")
 
-  // Disconnect modal state
-  const [showDisconnectModal, setShowDisconnectModal] = useState(false)
+
 
   // Sync commands state
   const [syncingCommands, setSyncingCommands] = useState(false)
@@ -56,20 +55,7 @@ export default function ServerDetails() {
   const [savingMirror, setSavingMirror] = useState(false)
   const [mirrorSuccess, setMirrorSuccess] = useState(false)
 
-  // Commands state (retained for permissions tab configuration)
-  const [commandsList, setCommandsList] = useState<CommandConfig[]>([])
 
-  // Permissions tab state (local/mock config)
-  const [permissionsMap, setPermissionsMap] = useState<Record<string, string>>({
-    report: "everyone",
-    status: "everyone"
-  })
-  const [savedPermissions, setSavedPermissions] = useState<Record<string, string>>({
-    report: "everyone",
-    status: "everyone"
-  })
-  const [savingPermissions, setSavingPermissions] = useState(false)
-  const [permissionsSuccess, setPermissionsSuccess] = useState(false)
 
   // 1. Fetch server details using TanStack Query
   const { data: server, isLoading: isServerLoading, error: serverError } = useQuery<DiscordServer | null>({
@@ -114,32 +100,8 @@ export default function ServerDetails() {
         setLoggingEnabled(server.config.logging_enabled)
         setMirrorChannelId(server.config.mirror_channel_id || "")
       }
-
-      const defaultCommands = [
-        { command_name: "report", enabled: true, ai_enabled: true, mirror_enabled: true },
-        { command_name: "status", enabled: true, ai_enabled: false, mirror_enabled: true }
-      ]
-
-      const mergedCommands = defaultCommands.map((def) => {
-        const dbConfig = server.command_configs?.find((db) => db.command_name === def.command_name)
-        return dbConfig ? { ...def, ...dbConfig } : def
-      })
-
-      setCommandsList(mergedCommands)
     }
   }, [server])
-
-  // Synchronize permissionsMap when commandsList changes
-  useEffect(() => {
-    if (commandsList.length > 0) {
-      const initialMap: Record<string, string> = {}
-      commandsList.forEach((cmd) => {
-        initialMap[cmd.command_name] = (cmd as any).permissions || "everyone"
-      })
-      setPermissionsMap(initialMap)
-      setSavedPermissions(initialMap)
-    }
-  }, [commandsList])
 
   const initialLoggingEnabled = server?.config?.logging_enabled ?? true
   const initialMirrorChannelId = server?.config?.mirror_channel_id ? server.config.mirror_channel_id.toString() : ""
@@ -148,9 +110,7 @@ export default function ServerDetails() {
     loggingEnabled !== initialLoggingEnabled ||
     mirrorChannelId !== initialMirrorChannelId
 
-  const isPermissionsChanged = 
-    permissionsMap.report !== savedPermissions.report ||
-    permissionsMap.status !== savedPermissions.status
+
 
   // Sync Slash Commands trigger
   const handleSyncCommands = async () => {
@@ -228,44 +188,7 @@ export default function ServerDetails() {
     }
   }
 
-  const handleSavePermissions = async () => {
-    if (!session?.access_token || !serverId) return
 
-    try {
-      setSavingPermissions(true)
-      setPermissionsSuccess(false)
-
-      const updatedCommands = commandsList.map((cmd) => ({
-        ...cmd,
-        permissions: permissionsMap[cmd.command_name] || "everyone"
-      }))
-
-      const response = await fetch(`${API_BASE_URL}/api/v1/servers/${serverId}/commands`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({
-          commands: updatedCommands
-        })
-      })
-
-      if (!response.ok) {
-        const errData = await response.json()
-        throw new Error(errData.error?.message || "Failed to save permissions configuration.")
-      }
-
-      queryClient.invalidateQueries({ queryKey: ["serverDetails", serverId] })
-      setPermissionsSuccess(true)
-      setTimeout(() => setPermissionsSuccess(false), 3000)
-    } catch (err: any) {
-      console.error(err)
-      alert(err.message || "Failed to save permissions configurations.")
-    } finally {
-      setSavingPermissions(false)
-    }
-  }
 
   const formatConnectedDate = (dateStr: string) => {
     try {
@@ -357,7 +280,7 @@ export default function ServerDetails() {
       <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
         {/* Tab Headers */}
         <div className="flex border-b border-slate-100 bg-slate-50/50 overflow-x-auto">
-          {(["general", "mirroring", "permissions"] as const).map((tab) => (
+          {(["general", "mirroring"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -411,14 +334,6 @@ export default function ServerDetails() {
                 >
                   <RefreshCw className={`h-4 w-4 ${syncingCommands ? "animate-spin" : ""}`} />
                   <span>{syncingCommands ? "Syncing..." : "Sync Slash Commands"}</span>
-                </Button>
-
-                <Button
-                  onClick={() => setShowDisconnectModal(true)}
-                  className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-4 py-2 text-xs font-semibold rounded-lg cursor-pointer flex items-center gap-2"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  <span>Disconnect Server</span>
                 </Button>
 
                 {syncSuccess && (
@@ -489,99 +404,10 @@ export default function ServerDetails() {
             </form>
           )}
 
-          {activeTab === "permissions" && (
-            <div className="max-w-xl space-y-6">
-              <div>
-                <h3 className="font-bold text-slate-900 text-base">Bot & User Permissions</h3>
-                <p className="text-xs text-slate-400 mt-1">Assign command accessibility options mapping active roles.</p>
-              </div>
-
-              <div className="space-y-4">
-                {commandsList.map((cmd) => (
-                  <div key={cmd.command_name} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-slate-200 rounded-xl p-4">
-                    <div>
-                      <p className="font-mono text-xs font-bold text-slate-900">/{cmd.command_name}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Restrict who can run this command inside channels.</p>
-                    </div>
-                    <CustomDropdown
-                      options={[
-                        { value: "everyone", label: "Everyone" },
-                        { value: "moderators", label: "Moderators" },
-                        { value: "administrators", label: "Administrators" }
-                      ]}
-                      value={permissionsMap[cmd.command_name] || "everyone"}
-                      onChange={(val) => setPermissionsMap({ ...permissionsMap, [cmd.command_name]: val })}
-                      placeholder="Everyone"
-                      className="w-full sm:w-40"
-                      align="right"
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-4 pt-4 border-t border-slate-100">
-                <Button
-                  onClick={handleSavePermissions}
-                  disabled={savingPermissions || !isPermissionsChanged}
-                  className="bg-slate-900 hover:bg-slate-800 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 cursor-pointer shadow-xs text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Save className="h-4 w-4" />
-                  <span>{savingPermissions ? "Saving..." : "Save Changes"}</span>
-                </Button>
-                {permissionsSuccess && (
-                  <span className="text-xs text-green-600 font-semibold flex items-center gap-1 animate-fade-in">
-                    <CheckCircle className="h-4 w-4" />
-                    <span>Permissions updated!</span>
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Disconnect Modal Overlay */}
-      {showDisconnectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="bg-white rounded-xl border border-slate-200 p-6 max-w-sm w-full shadow-lg space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2 text-red-600">
-                <ShieldAlert className="h-5 w-5" />
-                <span>Disconnect Server</span>
-              </h3>
-              <button 
-                onClick={() => setShowDisconnectModal(false)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Are you sure you want to disconnect **{server.name}**? This will remove the configurations, command overrides, and logging parameters configured for this server.
-            </p>
-            
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowDisconnectModal(false)}
-                className="text-xs font-semibold px-4 py-2 border-slate-200 text-slate-600 cursor-pointer hover:bg-slate-50"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  alert("Disconnect server functionality will be implemented in the next phase.")
-                  setShowDisconnectModal(false)
-                }}
-                className="bg-red-600 hover:bg-red-500 text-white font-semibold text-xs px-4 py-2 rounded-lg cursor-pointer"
-              >
-                Confirm Disconnect
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   )
 }

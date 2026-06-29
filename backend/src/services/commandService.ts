@@ -23,131 +23,115 @@ export class CommandService {
     const discordUserId = payload.member?.user?.id || payload.user?.id
     const interactionToken = payload.token
 
-    if (!guildId || !discordUserId) {
-      await this.updateDeferredResponse(interactionToken, "❌ Error: Could not resolve server guild context or user identity.")
-      return
-    }
-
-    // 1. Interaction Deduplication: check if this interaction has already been processed
-    const existingInteraction = await prisma.interactionLog.findFirst({
-      where: { interaction_id: interactionId }
-    })
-
-    if (existingInteraction) {
-      console.info(`ℹ️ Deduplicated duplicate interaction ID: ${interactionId}`)
-      await this.updateDeferredResponse(interactionToken, "⚠️ Duplicate interaction received. This command was already processed.")
-      return
-    }
-
-    // 2. Fetch server, server config, and command config in one single query
-    const server = await prisma.server.findUnique({
-      where: { discord_guild_id: BigInt(guildId) },
-      include: {
-        config: true,
-        command_configs: {
-          where: { command_name: commandName }
-        }
-      }
-    })
-
-    if (!server) {
-      await this.updateDeferredResponse(interactionToken, "❌ Error: This server has not been registered in the dashboard. Please connect it first.")
-      return
-    }
-
-    // Resolve command configuration
-    let cmdConfig = server.command_configs?.[0] || null
-
-    if (commandName === "about") {
-      // Force /about command configuration: always enabled, no AI, no mirroring
-      cmdConfig = {
-        id: "",
-        server_id: server.id,
-        command_name: "about",
-        enabled: true,
-        ai_enabled: false,
-        mirror_enabled: false,
-        permissions: "everyone",
-        created_at: new Date(),
-        updated_at: new Date()
-      }
-    } else if (!cmdConfig) {
-      cmdConfig = {
-        id: "",
-        server_id: server.id,
-        command_name: commandName,
-        enabled: true,
-        ai_enabled: commandName === "report", // default: AI active for reports
-        mirror_enabled: true, // default: active to align with frontend checked state
-        permissions: "everyone",
-        created_at: new Date(),
-        updated_at: new Date()
-      }
-    }
-
-    // 3. Respect enabled/disabled configuration
-    if (!cmdConfig.enabled) {
-      await this.updateDeferredResponse(interactionToken, `⚠️ The \`/${commandName}\` command is currently disabled by the server administrator.`)
-      return
-    }
-
-    // 4. Enforce role permissions configuration
-    const requiredPermissions = (cmdConfig as any).permissions || "everyone"
-    if (requiredPermissions !== "everyone" && payload.member) {
-      const userPermissions = BigInt(payload.member.permissions || "0")
-      const isAdmin = (userPermissions & 0x8n) === 0x8n
-      const isMod = isAdmin || (userPermissions & 0x20n) === 0x20n || (userPermissions & 0x2n) === 0x2n || (userPermissions & 0x4n) === 0x4n
-
-      if (requiredPermissions === "administrators" && !isAdmin) {
-        await this.updateDeferredResponse(interactionToken, "❌ Permission Denied: This command is restricted to server administrators.")
-        return
-      }
-      if (requiredPermissions === "moderators" && !isMod) {
-        await this.updateDeferredResponse(interactionToken, "❌ Permission Denied: This command is restricted to moderators and administrators.")
-        return
-      }
-    }
-
-    const isAiEnabled = cmdConfig.ai_enabled
-    const isMirrorEnabled = cmdConfig.mirror_enabled
-
-    // Parse arguments and construct normalized report parameters
-    let issue = ""
-    let details = ""
-    let reportText = ""
-    let originalReportBlock = ""
+    let server: any = null
+    let isMirrorEnabled = true
     let args: any[] = []
 
-    if (isModal) {
-      const components = payload.data?.components || []
-      for (const row of components) {
-        if (row.components) {
-          for (const comp of row.components) {
-            if (comp.custom_id === "report_issue") {
-              issue = comp.value
-            } else if (comp.custom_id === "report_details") {
-              details = comp.value
+    try {
+      if (!guildId || !discordUserId) {
+        throw new Error("Could not resolve server guild context or user identity.")
+      }
+
+      // 1. Interaction Deduplication: check if this interaction has already been processed
+      const existingInteraction = await prisma.interactionLog.findFirst({
+        where: { interaction_id: interactionId }
+      })
+
+      if (existingInteraction) {
+        console.info(`ℹ️ Deduplicated duplicate interaction ID: ${interactionId}`)
+        try {
+          await this.updateDeferredResponse(interactionToken, "⚠️ Duplicate interaction received. This command was already processed.")
+        } catch {}
+        return
+      }
+
+      // 2. Fetch server, server config, and command config in one single query
+      server = await prisma.server.findUnique({
+        where: { discord_guild_id: BigInt(guildId) },
+        include: {
+          config: true,
+          command_configs: {
+            where: { command_name: commandName }
+          }
+        }
+      })
+
+      if (!server) {
+        throw new Error("This server has not been registered in the dashboard. Please connect it first.")
+      }
+
+      // Resolve command configuration
+      let cmdConfig = server.command_configs?.[0] || null
+
+      if (commandName === "about") {
+        // Force /about command configuration: always enabled, no AI, no mirroring
+        cmdConfig = {
+          id: "",
+          server_id: server.id,
+          command_name: "about",
+          enabled: true,
+          ai_enabled: false,
+          mirror_enabled: false,
+          created_at: new Date(),
+          updated_at: new Date()
+        }
+      } else if (!cmdConfig) {
+        cmdConfig = {
+          id: "",
+          server_id: server.id,
+          command_name: commandName,
+          enabled: true,
+          ai_enabled: commandName === "report", // default: AI active for reports
+          mirror_enabled: true, // default: active to align with frontend checked state
+          created_at: new Date(),
+          updated_at: new Date()
+        }
+      }
+
+      // 3. Respect enabled/disabled configuration
+      if (!cmdConfig.enabled) {
+        await this.updateDeferredResponse(interactionToken, `⚠️ The \`/${commandName}\` command is currently disabled by the server administrator.`)
+        return
+      }
+
+      const isAiEnabled = cmdConfig.ai_enabled
+      isMirrorEnabled = cmdConfig.mirror_enabled
+
+      // Parse arguments and construct normalized report parameters
+      let issue = ""
+      let details = ""
+      let reportText = ""
+      let originalReportBlock = ""
+
+      if (isModal) {
+        const components = payload.data?.components || []
+        for (const row of components) {
+          if (row.components) {
+            for (const comp of row.components) {
+              if (comp.custom_id === "report_issue") {
+                issue = comp.value
+              } else if (comp.custom_id === "report_details") {
+                details = comp.value
+              }
             }
           }
         }
+        reportText = `Issue: ${issue}\nDetails: ${details}`
+        originalReportBlock = `**Issue**: ${issue}\n**Details**: ${details}`
+        args = [
+          { name: "issue", value: issue },
+          { name: "details", value: details }
+        ]
+      } else {
+        args = options || []
+        if (commandName === "report") {
+          const textOption = args?.find((o: any) => o.name === "text")
+          const textVal = textOption?.value || "No content supplied."
+          reportText = textVal
+          originalReportBlock = textVal
+        }
       }
-      reportText = `Issue: ${issue}\nDetails: ${details}`
-      originalReportBlock = `**Issue**: ${issue}\n**Details**: ${details}`
-      args = [
-        { name: "issue", value: issue },
-        { name: "details", value: details }
-      ]
-    } else {
-      args = options || []
-      if (commandName === "report") {
-        const textOption = args?.find((o: any) => o.name === "text")
-        const textVal = textOption?.value || "No content supplied."
-        reportText = textVal
-        originalReportBlock = textVal
-      }
-    }
 
-    try {
       let responseText = ""
       let aiSummary: string | null = null
       let discordPayload: string | { content?: string; embeds?: any[]; components?: any[] } = ""
@@ -169,15 +153,14 @@ export class CommandService {
         }
         discordPayload = responseText
       } else {
-        responseText = `❌ Error: Unknown slash command \`/${commandName}\`.`
-        discordPayload = responseText
+        throw new Error(`Unknown slash command /${commandName}`)
       }
 
       // ALWAYS update the original deferred response using Discord webhooks API
       await this.updateDeferredResponse(interactionToken, discordPayload)
 
       // Trigger logging and mirroring
-      this.runLoggingAndMirroringPipeline(
+      await this.runLoggingAndMirroringPipeline(
         interactionId,
         server,
         discordUserId,
@@ -201,18 +184,24 @@ export class CommandService {
         console.error("Failed to send error message back to Discord:", patchErr)
       }
 
-      // Log failure state
-      this.runLoggingAndMirroringPipeline(
-        interactionId,
-        server,
-        discordUserId,
-        commandName,
-        args,
-        `Error: ${err.message || "Internal failure"}`,
-        isMirrorEnabled,
-        InteractionStatus.FAILED,
-        null
-      )
+      // Log failure state if server details are resolved
+      if (server) {
+        try {
+          await this.runLoggingAndMirroringPipeline(
+            interactionId,
+            server,
+            discordUserId,
+            commandName,
+            args,
+            `Error: ${err.message || "Internal failure"}`,
+            isMirrorEnabled,
+            InteractionStatus.FAILED,
+            null
+          )
+        } catch (dbErr) {
+          console.error("Failed to write FAILED log to database:", dbErr)
+        }
+      }
     }
   }
 
@@ -257,7 +246,9 @@ export class CommandService {
 
     if (!response.ok) {
       const errBody = await response.json().catch(() => ({}))
-      console.error("❌ Failed to update Discord deferred message:", errBody)
+      const errMsg = `Failed to update Discord deferred message (status: ${response.status}): ${JSON.stringify(errBody)}`
+      console.error(`❌ ${errMsg}`)
+      throw new Error(errMsg)
     }
   }
 
@@ -311,8 +302,15 @@ export class CommandService {
       const mirrorChannelId = server.config?.mirror_channel_id ? server.config.mirror_channel_id.toString() : null
 
       if (isLoggingEnabled && isMirrorEnabled && !bypassMirror && mirrorChannelId) {
-        // Run mirroring send asynchronously in the background
-        await this.sendMirrorNotification(log.id, server.name, commandName, discordUserId, status, mirrorChannelId, args, aiSummary)
+        const mirrorSuccess = await this.sendMirrorNotification(log.id, server.name, commandName, discordUserId, status, mirrorChannelId, args, aiSummary)
+        if (!mirrorSuccess && status === InteractionStatus.SUCCESS) {
+          // If the interaction itself succeeded but the logging mirror sending failed,
+          // count the overall command interaction run as FAILED!
+          await prisma.interactionLog.update({
+            where: { id: log.id },
+            data: { status: InteractionStatus.FAILED }
+          })
+        }
       }
     } catch (err: any) {
       console.error("❌ Error in background logging/mirroring pipeline:", err)
@@ -332,7 +330,7 @@ export class CommandService {
     mirrorChannelId: string,
     args: any,
     aiSummary: string | null
-  ) {
+  ): Promise<boolean> {
     try {
       const fields: any[] = [
         { name: "User ID", value: `<@${discordUserId}>`, inline: true },
@@ -407,6 +405,7 @@ export class CommandService {
             retry_count: 0
           }
         })
+        return false
       } else {
         await prisma.actionLog.create({
           data: {
@@ -416,6 +415,7 @@ export class CommandService {
             retry_count: 0
           }
         })
+        return true
       }
     } catch (err: any) {
       console.error(`❌ Channel mirroring request error:`, err)
@@ -432,6 +432,7 @@ export class CommandService {
       } catch (dbErr) {
         console.error("Failed to write mirror failure to action log:", dbErr)
       }
+      return false
     }
   }
 }
