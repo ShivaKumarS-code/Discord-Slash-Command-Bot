@@ -248,9 +248,38 @@ router.post("/interactions", verifyDiscordSignature, async (req, res) => {
     if (type === 2) { // APPLICATION_COMMAND
       const { name: commandName, options } = req.body.data || {}
       const hasTextOption = options?.some((o: any) => o.name === "text")
+      const guildId = req.body.guild_id
 
-      // If /report is executed without the text option, respond immediately with the Modal payload
+      // If /report is executed without the text option, check config first
       if (commandName === "report" && !hasTextOption) {
+        if (guildId) {
+          try {
+            const server = await prisma.server.findUnique({
+              where: { discord_guild_id: BigInt(guildId) },
+              include: {
+                command_configs: {
+                  where: { command_name: "report" }
+                }
+              }
+            })
+            if (server) {
+              const cmdConfig = server.command_configs?.[0]
+              if (cmdConfig && !cmdConfig.enabled) {
+                res.json({
+                  type: 4, // CHANNEL_MESSAGE_WITH_SOURCE
+                  data: {
+                    content: "⚠️ The `/report` command is currently disabled by the server administrator.",
+                    flags: 64 // EPHEMERAL
+                  }
+                })
+                return
+              }
+            }
+          } catch (dbErr) {
+            console.error("Database error while checking command status for modal:", dbErr)
+          }
+        }
+
         res.json({
           type: 9, // MODAL
           data: {
