@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import Skeleton from "@/components/ui/Skeleton"
+import { API_BASE_URL } from "@/services/api"
 
 interface ServerConfig {
   logging_enabled: boolean
@@ -30,7 +31,7 @@ export default function Servers() {
     queryKey: ["servers", session?.access_token],
     queryFn: async () => {
       if (!session?.access_token) return []
-      const response = await fetch("/api/v1/servers", {
+      const response = await fetch(`${API_BASE_URL}/api/v1/servers`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`
         }
@@ -46,7 +47,7 @@ export default function Servers() {
 
   const handleConnectServer = () => {
     if (session?.access_token) {
-      window.location.href = `/api/v1/discord/connect?token=${session.access_token}`
+      window.location.href = `${API_BASE_URL}/api/v1/discord/connect?token=${session.access_token}`
     } else {
       alert("You must be logged in to connect a server.")
     }

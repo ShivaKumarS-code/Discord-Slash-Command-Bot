@@ -8,6 +8,7 @@ import { Server, Terminal, Activity, Repeat, Eye, History, ArrowRight, CheckCirc
 import { Button } from "@/components/ui/button"
 import { useQuery } from "@tanstack/react-query"
 import Skeleton from "@/components/ui/Skeleton"
+import { API_BASE_URL } from "@/services/api"
 
 interface InteractionLog {
   id: string
@@ -50,7 +51,7 @@ export default function Dashboard() {
     queryKey: ["dashboardSummary", session?.access_token],
     queryFn: async () => {
       if (!session?.access_token) return null
-      const response = await fetch("/api/v1/dashboard/summary", {
+      const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/summary`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`
         }

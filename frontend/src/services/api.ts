@@ -3,7 +3,7 @@
  * Uses environment variables configuration via Vite (import.meta.env).
  */
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000"
+export const API_BASE_URL = (import.meta.env.VITE_API_URL as string) || ""
 
 export interface RequestOptions extends RequestInit {
   params?: Record<string, string>

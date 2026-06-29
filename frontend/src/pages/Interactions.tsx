@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useQuery } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import Skeleton from "@/components/ui/Skeleton"
+import { API_BASE_URL } from "@/services/api"
 
 interface InteractionLog {
   id: string
@@ -62,7 +63,7 @@ export default function Interactions() {
     queryKey: ["servers", session?.access_token],
     queryFn: async () => {
       if (!session?.access_token) return []
-      const response = await fetch("/api/v1/servers", {
+      const response = await fetch(`${API_BASE_URL}/api/v1/servers`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`
         }
@@ -89,7 +90,7 @@ export default function Interactions() {
       if (selectedCommand) params.append("command", selectedCommand)
       if (debouncedSearchId) params.append("interactionId", debouncedSearchId)
 
-      const response = await fetch(`/api/v1/interaction-logs?${params.toString()}`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/interaction-logs?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`
         }

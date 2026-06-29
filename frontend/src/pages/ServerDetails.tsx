@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { CustomDropdown } from "@/components/ui/CustomDropdown"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import Skeleton from "@/components/ui/Skeleton"
+import { API_BASE_URL } from "@/services/api"
 
 interface ServerConfig {
   logging_enabled: boolean
@@ -75,7 +76,7 @@ export default function ServerDetails() {
     queryKey: ["serverDetails", serverId, session?.access_token],
     queryFn: async () => {
       if (!session?.access_token || !serverId) return null
-      const response = await fetch(`/api/v1/servers/${serverId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/servers/${serverId}`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`
         }
@@ -94,7 +95,7 @@ export default function ServerDetails() {
     queryKey: ["serverChannels", serverId, session?.access_token],
     queryFn: async () => {
       if (!session?.access_token || !serverId) return []
-      const response = await fetch(`/api/v1/servers/${serverId}/channels`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/servers/${serverId}/channels`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`
         }
@@ -158,7 +159,7 @@ export default function ServerDetails() {
     try {
       setSyncingCommands(true)
       setSyncSuccess(false)
-      const response = await fetch("/api/v1/discord/sync-commands", {
+      const response = await fetch(`${API_BASE_URL}/api/v1/discord/sync-commands`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -195,7 +196,7 @@ export default function ServerDetails() {
     try {
       setSavingMirror(true)
       setMirrorSuccess(false)
-      const response = await fetch(`/api/v1/servers/${serverId}/config`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/servers/${serverId}/config`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -239,7 +240,7 @@ export default function ServerDetails() {
         permissions: permissionsMap[cmd.command_name] || "everyone"
       }))
 
-      const response = await fetch(`/api/v1/servers/${serverId}/commands`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/servers/${serverId}/commands`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

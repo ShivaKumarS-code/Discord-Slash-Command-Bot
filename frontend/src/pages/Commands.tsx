@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import Skeleton from "@/components/ui/Skeleton"
+import { API_BASE_URL } from "@/services/api"
 
 interface ServerConfig {
   logging_enabled: boolean
@@ -44,7 +45,7 @@ export default function Commands() {
     queryKey: ["servers", session?.access_token],
     queryFn: async () => {
       if (!session?.access_token) return []
-      const response = await fetch("/api/v1/servers", {
+      const response = await fetch(`${API_BASE_URL}/api/v1/servers`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`
         }
@@ -68,7 +69,7 @@ export default function Commands() {
     queryKey: ["serverDetails", selectedServerId, session?.access_token],
     queryFn: async () => {
       if (!selectedServerId || !session?.access_token) return null
-      const response = await fetch(`/api/v1/servers/${selectedServerId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/servers/${selectedServerId}`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`
         }
@@ -142,7 +143,7 @@ export default function Commands() {
     try {
       setSaving(true)
       setSaveSuccess(false)
-      const response = await fetch(`/api/v1/servers/${selectedServerId}/commands`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/servers/${selectedServerId}/commands`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
