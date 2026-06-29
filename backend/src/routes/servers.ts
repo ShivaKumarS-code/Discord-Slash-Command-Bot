@@ -119,7 +119,8 @@ router.get("/:id", requireAuth, async (req, res) => {
         command_name: cmd.command_name,
         enabled: cmd.enabled,
         ai_enabled: cmd.ai_enabled,
-        mirror_enabled: cmd.mirror_enabled
+        mirror_enabled: cmd.mirror_enabled,
+        permissions: cmd.permissions
       }))
     }
 
@@ -295,14 +296,16 @@ router.put("/:id/commands", requireAuth, async (req, res) => {
         update: {
           enabled: cmd.enabled,
           ai_enabled: cmd.ai_enabled,
-          mirror_enabled: cmd.mirror_enabled
+          mirror_enabled: cmd.mirror_enabled,
+          permissions: cmd.permissions
         },
         create: {
           server_id: id,
           command_name: cmd.command_name,
           enabled: cmd.enabled,
           ai_enabled: cmd.ai_enabled,
-          mirror_enabled: cmd.mirror_enabled
+          mirror_enabled: cmd.mirror_enabled,
+          permissions: cmd.permissions || "everyone"
         }
       })
       
@@ -312,7 +315,8 @@ router.put("/:id/commands", requireAuth, async (req, res) => {
         command_name: config.command_name,
         enabled: config.enabled,
         ai_enabled: config.ai_enabled,
-        mirror_enabled: config.mirror_enabled
+        mirror_enabled: config.mirror_enabled,
+        permissions: config.permissions
       })
     }
 

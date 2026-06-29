@@ -67,6 +67,7 @@ export class CommandService {
         enabled: true,
         ai_enabled: false,
         mirror_enabled: false,
+        permissions: "everyone",
         created_at: new Date(),
         updated_at: new Date()
       }
@@ -78,6 +79,7 @@ export class CommandService {
         enabled: true,
         ai_enabled: commandName === "report", // default: AI active for reports
         mirror_enabled: true, // default: active to align with frontend checked state
+        permissions: "everyone",
         created_at: new Date(),
         updated_at: new Date()
       }
@@ -87,6 +89,23 @@ export class CommandService {
     if (!cmdConfig.enabled) {
       await this.updateDeferredResponse(interactionToken, `⚠️ The \`/${commandName}\` command is currently disabled by the server administrator.`)
       return
+    }
+
+    // 4. Enforce role permissions configuration
+    const requiredPermissions = (cmdConfig as any).permissions || "everyone"
+    if (requiredPermissions !== "everyone" && payload.member) {
+      const userPermissions = BigInt(payload.member.permissions || "0")
+      const isAdmin = (userPermissions & 0x8n) === 0x8n
+      const isMod = isAdmin || (userPermissions & 0x20n) === 0x20n || (userPermissions & 0x2n) === 0x2n || (userPermissions & 0x4n) === 0x4n
+
+      if (requiredPermissions === "administrators" && !isAdmin) {
+        await this.updateDeferredResponse(interactionToken, "❌ Permission Denied: This command is restricted to server administrators.")
+        return
+      }
+      if (requiredPermissions === "moderators" && !isMod) {
+        await this.updateDeferredResponse(interactionToken, "❌ Permission Denied: This command is restricted to moderators and administrators.")
+        return
+      }
     }
 
     const isAiEnabled = cmdConfig.ai_enabled
@@ -286,9 +305,9 @@ export class CommandService {
         }
       })
 
-      // 2. Perform log channel mirroring if enabled (bypass for status and about commands)
+      // 2. Perform log channel mirroring if enabled (bypass for about command)
       const isLoggingEnabled = server.config?.logging_enabled ?? false
-      const bypassMirror = commandName === "status" || commandName === "about"
+      const bypassMirror = commandName === "about"
       const mirrorChannelId = server.config?.mirror_channel_id ? server.config.mirror_channel_id.toString() : null
 
       if (isLoggingEnabled && isMirrorEnabled && !bypassMirror && mirrorChannelId) {

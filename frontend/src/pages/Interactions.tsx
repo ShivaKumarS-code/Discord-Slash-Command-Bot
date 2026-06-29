@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import PageHeader from "@/components/PageHeader"
 import ServerSelector, { ServerOption } from "@/components/ServerSelector"
 import { Activity, Search, ChevronLeft, ChevronRight } from "lucide-react"
+import { CustomDropdown } from "@/components/ui/CustomDropdown"
 import { useAuth } from "@/contexts/AuthContext"
 import { useQuery } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
+import Skeleton from "@/components/ui/Skeleton"
 
 interface InteractionLog {
   id: string
@@ -171,24 +173,26 @@ export default function Interactions() {
           servers={serverOptions}
           selectedServerId={selectedServerId}
           onChange={setSelectedServerId}
+          align="right"
         />
       </div>
 
       {/* Filters Toolbar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-3xs flex flex-col md:flex-row gap-4 items-center justify-between">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-3xs flex flex-col md:flex-row gap-4 items-center justify-between relative z-20">
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           {/* Command select filter */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Command:</span>
-            <select
+            <CustomDropdown
+              options={[
+                { value: "", label: "All Commands" },
+                { value: "status", label: "/status" },
+                { value: "report", label: "/report" }
+              ]}
               value={selectedCommand}
-              onChange={(e) => setSelectedCommand(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 focus:border-slate-900 focus:outline-none cursor-pointer transition-colors"
-            >
-              <option value="">All Commands</option>
-              <option value="status">/status</option>
-              <option value="report">/report</option>
-            </select>
+              onChange={setSelectedCommand}
+              placeholder="All Commands"
+            />
           </div>
         </div>
 
@@ -207,12 +211,7 @@ export default function Interactions() {
 
       {/* Logs Table */}
       {isLoading ? (
-        <div className="flex justify-center items-center py-20 bg-white border border-slate-200 rounded-xl shadow-xs">
-          <div className="flex flex-col items-center gap-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-900" />
-            <p className="text-sm font-medium text-slate-500">Loading interactions logs...</p>
-          </div>
-        </div>
+        <Skeleton className="h-[400px] w-full rounded-xl animate-fade-in" />
       ) : error ? (
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700">
           <h4 className="font-semibold mb-1">Failed to load interaction logs</h4>
@@ -243,9 +242,9 @@ export default function Interactions() {
                   <th className="px-6 py-4 text-center">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+              <tbody className="divide-y divide-[#1c1c1c] [&>tr:first-child]:border-t-0 text-slate-700 font-medium">
                 {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50/20 transition-colors">
+                  <tr key={log.id} className="transition-colors">
                     <td className="px-6 py-4 font-mono text-slate-400 whitespace-nowrap">
                       {formatLogTime(log.created_at)}
                     </td>

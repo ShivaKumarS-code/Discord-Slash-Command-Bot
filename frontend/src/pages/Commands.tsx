@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import PageHeader from "@/components/PageHeader"
 import ServerSelector, { ServerOption } from "@/components/ServerSelector"
-import { Terminal, Save, CheckCircle, Eye } from "lucide-react"
+import { Terminal, Save, CheckCircle } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
+import Skeleton from "@/components/ui/Skeleton"
 
 interface ServerConfig {
   logging_enabled: boolean
@@ -98,6 +99,34 @@ export default function Commands() {
     }
   }, [serverDetails])
 
+  const getInitialCommands = () => {
+    if (!serverDetails) return []
+    const defaultCommands = [
+      { command_name: "report", enabled: true, ai_enabled: true, mirror_enabled: true },
+      { command_name: "status", enabled: true, ai_enabled: false, mirror_enabled: true }
+    ]
+    return defaultCommands.map((def) => {
+      const dbConfig = serverDetails.command_configs?.find((db) => db.command_name === def.command_name)
+      return dbConfig ? {
+        command_name: def.command_name,
+        enabled: dbConfig.enabled,
+        ai_enabled: dbConfig.ai_enabled,
+        mirror_enabled: dbConfig.mirror_enabled
+      } : def
+    })
+  }
+
+  const initialCommands = getInitialCommands()
+  const isChanged = commandsList.some((cmd, idx) => {
+    const init = initialCommands[idx]
+    if (!init) return true
+    return (
+      cmd.enabled !== init.enabled ||
+      cmd.ai_enabled !== init.ai_enabled ||
+      cmd.mirror_enabled !== init.mirror_enabled
+    )
+  })
+
   const handleCommandToggle = (index: number, field: keyof CommandConfig) => {
     const updated = [...commandsList]
     updated[index] = {
@@ -160,16 +189,12 @@ export default function Commands() {
           servers={serverOptions}
           selectedServerId={selectedServerId}
           onChange={setSelectedServerId}
+          align="right"
         />
       </div>
 
       {isDetailsLoading ? (
-        <div className="flex justify-center items-center py-20 bg-white border border-slate-200 rounded-xl shadow-xs">
-          <div className="flex flex-col items-center gap-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-900" />
-            <p className="text-sm font-medium text-slate-500">Loading command configurations...</p>
-          </div>
-        </div>
+        <Skeleton className="h-[350px] w-full rounded-xl animate-fade-in" />
       ) : !selectedServerId ? (
         <div className="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-sm">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
@@ -207,9 +232,9 @@ export default function Commands() {
                   <th className="px-6 py-3.5 text-center">Mirror Log</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700 font-semibold">
+              <tbody className="divide-y divide-[#1c1c1c] [&>tr:first-child]:border-t-0 text-slate-700 font-semibold">
                 {commandsList.map((cmd, idx) => (
-                  <tr key={cmd.command_name} className="hover:bg-slate-50/20 transition-colors">
+                  <tr key={cmd.command_name} className="transition-colors">
                     <td className="px-6 py-4">
                       <p className="font-mono text-slate-900 font-bold">/{cmd.command_name}</p>
                       <p className="text-[10px] text-slate-400 font-medium mt-0.5">
@@ -259,8 +284,8 @@ export default function Commands() {
           <div className="flex items-center gap-4 pt-4 border-t border-slate-100">
             <Button
               onClick={handleSaveChanges}
-              disabled={saving}
-              className="bg-slate-900 hover:bg-slate-800 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 cursor-pointer shadow-xs text-xs"
+              disabled={saving || !isChanged}
+              className="bg-slate-900 hover:bg-slate-800 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 cursor-pointer shadow-xs text-xs disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="h-4 w-4" />
               <span>{saving ? "Saving..." : "Save Changes"}</span>

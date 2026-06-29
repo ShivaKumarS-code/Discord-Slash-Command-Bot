@@ -1,4 +1,3 @@
-import React from "react"
 import { NavLink } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import {
@@ -8,7 +7,6 @@ import {
   Activity,
   History,
   LogOut,
-  User,
   X
 } from "lucide-react"
 
@@ -48,9 +46,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       >
         <div className="flex h-16 items-center justify-between px-6 border-b border-slate-100">
           <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded-md bg-slate-900 flex items-center justify-center">
-              <span className="text-white font-bold text-xs">🤖</span>
-            </div>
+            <img
+              src="/bot.png"
+              alt="Bot"
+              className="h-8 w-8 rounded-full object-cover shrink-0 select-none"
+            />
             <span className="text-lg font-extrabold tracking-tight text-slate-900">
               Bot Control
             </span>
@@ -87,7 +87,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* User Footer Profile */}
         <div className="border-t border-slate-100 p-4 bg-slate-50/50">
           <div className="flex items-center gap-3 px-3 py-2 mb-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-700 font-bold text-xs uppercase">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-400 text-black font-bold text-xs uppercase">
               {userDisplayName.charAt(0)}
             </div>
             <div className="overflow-hidden">

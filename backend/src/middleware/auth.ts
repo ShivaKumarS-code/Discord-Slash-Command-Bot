@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express"
 import { supabaseAdmin } from "../integrations/supabase"
 import { prisma } from "../dependencies/prisma"
+import { authCache } from "../utils/authCache"
 
 // Extend the Express Request interface to include the authenticated user context
 declare global {
@@ -35,6 +36,14 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
 
   const token = authHeader.split(" ")[1]
+
+  // Check cache first to prevent duplicate network/DB lookups
+  const cachedUser = authCache.get(token)
+  if (cachedUser) {
+    req.user = cachedUser
+    next()
+    return
+  }
 
   try {
     // Validate JWT signature and fetch active profile from Supabase Auth API
@@ -86,6 +95,14 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
         return
       }
     }
+
+    // Cache the resolved user context for future requests
+    authCache.set(token, {
+      id: dbUser.id,
+      supabase_user_id: dbUser.supabase_user_id,
+      email: dbUser.email,
+      display_name: dbUser.display_name
+    })
 
     // Bind database user properties to request context
     req.user = {

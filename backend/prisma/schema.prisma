@@ -80,6 +80,7 @@ model CommandConfig {
   enabled        Boolean  @default(true)
   ai_enabled     Boolean  @default(true)
   mirror_enabled Boolean  @default(false)
+  permissions    String   @default("everyone") @db.VarChar(50)
   created_at     DateTime @default(now()) @db.Timestamptz
   updated_at     DateTime @updatedAt @db.Timestamptz
   server         Server   @relation(fields: [server_id], references: [id], onDelete: Cascade)

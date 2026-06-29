@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom"
 import { Server, Terminal, Activity, Repeat, Eye, History, ArrowRight, CheckCircle2, AlertTriangle, List, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useQuery } from "@tanstack/react-query"
+import Skeleton from "@/components/ui/Skeleton"
 
 interface InteractionLog {
   id: string
@@ -92,10 +93,34 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center py-20 bg-white border border-slate-200 rounded-xl shadow-xs">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-900" />
-          <p className="text-sm font-medium text-slate-500">Loading dashboard analytics...</p>
+      <div className="space-y-6 animate-fade-in">
+        {/* Header Skeleton */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-96" />
+          </div>
+          <Skeleton className="h-10 w-64" />
+        </div>
+
+        {/* Stat Cards Skeletons */}
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-32 w-full rounded-xl" />
+          ))}
+        </div>
+
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-32 w-full rounded-xl" />
+          ))}
+        </div>
+
+        {/* Recents Tables Skeleton */}
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+          {[...Array(2)].map((_, i) => (
+            <Skeleton key={i} className="h-80 w-full rounded-xl" />
+          ))}
         </div>
       </div>
     )
@@ -256,9 +281,9 @@ export default function Dashboard() {
                     <th className="py-2.5 text-right">Time</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+                <tbody className="divide-y divide-[#1c1c1c] [&>tr:first-child]:border-t-0 text-slate-700 font-medium">
                   {data.recentInteractions.map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                    <tr key={log.id} className="transition-colors">
                       <td className="py-3 font-mono font-semibold text-slate-900">/{log.command}</td>
                       <td className="py-3 truncate max-w-[120px]">{log.server_name}</td>
                       <td className="py-3 font-mono text-[10px] text-slate-400">{log.discord_user_id}</td>
@@ -298,9 +323,9 @@ export default function Dashboard() {
                     <th className="py-2.5 text-right">Time</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+                <tbody className="divide-y divide-[#1c1c1c] [&>tr:first-child]:border-t-0 text-slate-700 font-medium">
                   {data.recentActions.map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                    <tr key={log.id} className="transition-colors">
                       <td className="py-3 font-semibold text-slate-950">{log.action_type.replace(/_/g, " ")}</td>
                       <td className="py-3 truncate max-w-[120px]">{log.server_name}</td>
                       <td className="py-3 text-center">

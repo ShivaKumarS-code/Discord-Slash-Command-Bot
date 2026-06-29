@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { useParams, Link } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
-import { ArrowLeft, Calendar, RefreshCw, ShieldAlert, CheckCircle, Save, Trash2, X } from "lucide-react"
+import { ArrowLeft, RefreshCw, ShieldAlert, CheckCircle, Save, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { CustomDropdown } from "@/components/ui/CustomDropdown"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import Skeleton from "@/components/ui/Skeleton"
 
 interface ServerConfig {
   logging_enabled: boolean
@@ -58,6 +60,10 @@ export default function ServerDetails() {
 
   // Permissions tab state (local/mock config)
   const [permissionsMap, setPermissionsMap] = useState<Record<string, string>>({
+    report: "everyone",
+    status: "everyone"
+  })
+  const [savedPermissions, setSavedPermissions] = useState<Record<string, string>>({
     report: "everyone",
     status: "everyone"
   })
@@ -122,6 +128,29 @@ export default function ServerDetails() {
     }
   }, [server])
 
+  // Synchronize permissionsMap when commandsList changes
+  useEffect(() => {
+    if (commandsList.length > 0) {
+      const initialMap: Record<string, string> = {}
+      commandsList.forEach((cmd) => {
+        initialMap[cmd.command_name] = (cmd as any).permissions || "everyone"
+      })
+      setPermissionsMap(initialMap)
+      setSavedPermissions(initialMap)
+    }
+  }, [commandsList])
+
+  const initialLoggingEnabled = server?.config?.logging_enabled ?? true
+  const initialMirrorChannelId = server?.config?.mirror_channel_id ? server.config.mirror_channel_id.toString() : ""
+
+  const isMirrorChanged = 
+    loggingEnabled !== initialLoggingEnabled ||
+    mirrorChannelId !== initialMirrorChannelId
+
+  const isPermissionsChanged = 
+    permissionsMap.report !== savedPermissions.report ||
+    permissionsMap.status !== savedPermissions.status
+
   // Sync Slash Commands trigger
   const handleSyncCommands = async () => {
     if (!session?.access_token || !serverId) return
@@ -158,6 +187,11 @@ export default function ServerDetails() {
     e.preventDefault()
     if (!session?.access_token || !serverId) return
 
+    if (loggingEnabled && !mirrorChannelId) {
+      alert("Please select a target mirror channel.")
+      return
+    }
+
     try {
       setSavingMirror(true)
       setMirrorSuccess(false)
@@ -193,14 +227,43 @@ export default function ServerDetails() {
     }
   }
 
-  const handleSavePermissions = () => {
-    setSavingPermissions(true)
-    setPermissionsSuccess(false)
-    setTimeout(() => {
-      setSavingPermissions(false)
+  const handleSavePermissions = async () => {
+    if (!session?.access_token || !serverId) return
+
+    try {
+      setSavingPermissions(true)
+      setPermissionsSuccess(false)
+
+      const updatedCommands = commandsList.map((cmd) => ({
+        ...cmd,
+        permissions: permissionsMap[cmd.command_name] || "everyone"
+      }))
+
+      const response = await fetch(`/api/v1/servers/${serverId}/commands`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          commands: updatedCommands
+        })
+      })
+
+      if (!response.ok) {
+        const errData = await response.json()
+        throw new Error(errData.error?.message || "Failed to save permissions configuration.")
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["serverDetails", serverId] })
       setPermissionsSuccess(true)
       setTimeout(() => setPermissionsSuccess(false), 3000)
-    }, 800)
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || "Failed to save permissions configurations.")
+    } finally {
+      setSavingPermissions(false)
+    }
   }
 
   const formatConnectedDate = (dateStr: string) => {
@@ -227,11 +290,15 @@ export default function ServerDetails() {
 
   if (isServerLoading) {
     return (
-      <div className="flex justify-center items-center py-20 bg-white border border-slate-200 rounded-xl shadow-xs">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-900" />
-          <p className="text-sm font-medium text-slate-500">Loading server configurations...</p>
-        </div>
+      <div className="space-y-6 animate-fade-in">
+        {/* Back Link Skeleton */}
+        <Skeleton className="h-4 w-40" />
+
+        {/* Server Header Skeleton */}
+        <Skeleton className="h-24 w-full rounded-xl" />
+
+        {/* Form Content Skeleton */}
+        <Skeleton className="h-[400px] w-full rounded-xl" />
       </div>
     )
   }
@@ -388,20 +455,16 @@ export default function ServerDetails() {
                 {loggingEnabled && (
                   <div className="space-y-2">
                     <label htmlFor="mirror-channel" className="text-xs font-bold text-slate-800">Target Mirror Channel</label>
-                    <select
-                      id="mirror-channel"
-                      value={mirrorChannelId}
-                      onChange={(e) => setMirrorChannelId(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-slate-900 focus:outline-none transition-colors"
-                      required={loggingEnabled}
-                    >
-                      <option value="">Select Channel</option>
-                      {channels.map((ch) => (
-                        <option key={ch.id} value={ch.id}>
-                          #{ch.name}
-                        </option>
-                      ))}
-                    </select>
+                    <CustomDropdown
+                      options={[
+                        { value: "", label: "Select Channel" },
+                        ...channels.map((ch) => ({ value: ch.id, label: `#${ch.name}` }))
+                      ]}
+                      value={mirrorChannelId || ""}
+                      onChange={setMirrorChannelId}
+                      placeholder="Select Channel"
+                      className="w-full"
+                    />
                   </div>
                 )}
               </div>
@@ -409,8 +472,8 @@ export default function ServerDetails() {
               <div className="flex items-center gap-4 pt-4 border-t border-slate-100">
                 <Button
                   type="submit"
-                  disabled={savingMirror}
-                  className="bg-slate-900 hover:bg-slate-800 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 cursor-pointer shadow-xs text-xs"
+                  disabled={savingMirror || !isMirrorChanged}
+                  className="bg-slate-900 hover:bg-slate-800 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 cursor-pointer shadow-xs text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Save className="h-4 w-4" />
                   <span>{savingMirror ? "Saving..." : "Save Changes"}</span>
@@ -439,15 +502,18 @@ export default function ServerDetails() {
                       <p className="font-mono text-xs font-bold text-slate-900">/{cmd.command_name}</p>
                       <p className="text-[10px] text-slate-400 mt-0.5">Restrict who can run this command inside channels.</p>
                     </div>
-                    <select
+                    <CustomDropdown
+                      options={[
+                        { value: "everyone", label: "Everyone" },
+                        { value: "moderators", label: "Moderators" },
+                        { value: "administrators", label: "Administrators" }
+                      ]}
                       value={permissionsMap[cmd.command_name] || "everyone"}
-                      onChange={(e) => setPermissionsMap({ ...permissionsMap, [cmd.command_name]: e.target.value })}
-                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 focus:border-slate-900 focus:outline-none transition-colors w-full sm:w-40"
-                    >
-                      <option value="everyone">Everyone</option>
-                      <option value="moderators">Moderators</option>
-                      <option value="administrators">Administrators</option>
-                    </select>
+                      onChange={(val) => setPermissionsMap({ ...permissionsMap, [cmd.command_name]: val })}
+                      placeholder="Everyone"
+                      className="w-full sm:w-40"
+                      align="right"
+                    />
                   </div>
                 ))}
               </div>
@@ -455,8 +521,8 @@ export default function ServerDetails() {
               <div className="flex items-center gap-4 pt-4 border-t border-slate-100">
                 <Button
                   onClick={handleSavePermissions}
-                  disabled={savingPermissions}
-                  className="bg-slate-900 hover:bg-slate-800 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 cursor-pointer shadow-xs text-xs"
+                  disabled={savingPermissions || !isPermissionsChanged}
+                  className="bg-slate-900 hover:bg-slate-800 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 cursor-pointer shadow-xs text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Save className="h-4 w-4" />
                   <span>{savingPermissions ? "Saving..." : "Save Changes"}</span>

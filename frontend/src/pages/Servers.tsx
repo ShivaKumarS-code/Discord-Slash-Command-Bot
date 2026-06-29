@@ -1,4 +1,3 @@
-import React from "react"
 import PageHeader from "@/components/PageHeader"
 import EmptyState from "@/components/EmptyState"
 import { useAuth } from "@/contexts/AuthContext"
@@ -6,6 +5,7 @@ import { Server, Plus, Calendar, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
+import Skeleton from "@/components/ui/Skeleton"
 
 interface ServerConfig {
   logging_enabled: boolean
@@ -93,11 +93,10 @@ export default function Servers() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center items-center py-20 bg-white border border-slate-200 rounded-xl shadow-xs">
-          <div className="flex flex-col items-center gap-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-900" />
-            <p className="text-sm font-medium text-slate-500">Loading connected servers...</p>
-          </div>
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(3)].map((_, i) => (
+            <Skeleton key={i} className="h-56 w-full rounded-xl" />
+          ))}
         </div>
       ) : error ? (
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700">

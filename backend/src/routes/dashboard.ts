@@ -1,6 +1,7 @@
 import { Router } from "express"
 import { requireAuth } from "../middleware/auth"
 import { prisma } from "../dependencies/prisma"
+import { retry } from "../utils/retry"
 
 const router = Router()
 
@@ -22,96 +23,94 @@ router.get("/summary", requireAuth, async (req, res) => {
   try {
     const ownerId = req.user.id
 
-    // 1. Count connected servers
-    const connectedServers = await prisma.server.count({
-      where: { owner_id: ownerId }
-    })
-
-    // 2. Count command configurations across all user's servers
-    const registeredCommands = await prisma.commandConfig.count({
-      where: {
-        server: { owner_id: ownerId }
-      }
-    })
-
-    // 3. Count interaction logs from today (00:00:00 local time)
     const startOfToday = new Date()
     startOfToday.setHours(0, 0, 0, 0)
-    const todayInteractions = await prisma.interactionLog.count({
-      where: {
-        server: { owner_id: ownerId },
-        created_at: { gte: startOfToday }
-      }
-    })
 
-    // 4. Count active server configs with channel mirrors mapped
-    const activeMirrors = await prisma.serverConfig.count({
-      where: {
-        server: { owner_id: ownerId },
-        mirror_channel_id: { not: null }
-      }
-    })
-
-    // 5. Successful commands count
-    const successfulCommands = await prisma.interactionLog.count({
-      where: {
-        server: { owner_id: ownerId },
-        status: "SUCCESS"
-      }
-    })
-
-    // 6. Failed commands count
-    const failedCommands = await prisma.interactionLog.count({
-      where: {
-        server: { owner_id: ownerId },
-        status: "FAILED"
-      }
-    })
-
-    // 7. Total interaction logs count
-    const totalInteractionLogs = await prisma.interactionLog.count({
-      where: {
-        server: { owner_id: ownerId }
-      }
-    })
-
-    // 8. Total action logs count
-    const totalActionLogs = await prisma.actionLog.count({
-      where: {
-        interaction_log: {
-          server: { owner_id: ownerId }
-        }
-      }
-    })
-
-    // 9. Fetch 5 most recent interaction logs
-    const dbRecentInteractions = await prisma.interactionLog.findMany({
-      where: {
-        server: { owner_id: ownerId }
-      },
-      orderBy: { created_at: "desc" },
-      take: 5,
-      include: {
-        server: true
-      }
-    })
-
-    // 10. Fetch 5 most recent action logs
-    const dbRecentActions = await prisma.actionLog.findMany({
-      where: {
-        interaction_log: {
-          server: { owner_id: ownerId }
-        }
-      },
-      orderBy: { created_at: "desc" },
-      take: 5,
-      include: {
-        interaction_log: {
+    // Execute queries in parallel using Promise.all wrapped in retry
+    const [
+      connectedServers,
+      registeredCommands,
+      todayInteractions,
+      activeMirrors,
+      successfulCommands,
+      failedCommands,
+      totalInteractionLogs,
+      totalActionLogs,
+      dbRecentInteractions,
+      dbRecentActions
+    ] = await retry(async () => {
+      return Promise.all([
+        prisma.server.count({
+          where: { owner_id: ownerId }
+        }),
+        prisma.commandConfig.count({
+          where: {
+            server: { owner_id: ownerId }
+          }
+        }),
+        prisma.interactionLog.count({
+          where: {
+            server: { owner_id: ownerId },
+            created_at: { gte: startOfToday }
+          }
+        }),
+        prisma.serverConfig.count({
+          where: {
+            server: { owner_id: ownerId },
+            mirror_channel_id: { not: null }
+          }
+        }),
+        prisma.interactionLog.count({
+          where: {
+            server: { owner_id: ownerId },
+            status: "SUCCESS"
+          }
+        }),
+        prisma.interactionLog.count({
+          where: {
+            server: { owner_id: ownerId },
+            status: "FAILED"
+          }
+        }),
+        prisma.interactionLog.count({
+          where: {
+            server: { owner_id: ownerId }
+          }
+        }),
+        prisma.actionLog.count({
+          where: {
+            interaction_log: {
+              server: { owner_id: ownerId }
+            }
+          }
+        }),
+        prisma.interactionLog.findMany({
+          where: {
+            server: { owner_id: ownerId }
+          },
+          orderBy: { created_at: "desc" },
+          take: 5,
           include: {
             server: true
           }
-        }
-      }
+        }),
+        prisma.actionLog.findMany({
+          where: {
+            interaction_log: {
+              server: { owner_id: ownerId }
+            }
+          },
+          orderBy: { created_at: "desc" },
+          take: 5,
+          include: {
+            interaction_log: {
+              include: {
+                server: true
+              }
+            }
+          }
+        })
+      ])
     })
 
     // Format logs converting BigInt to string to satisfy JSON formatting

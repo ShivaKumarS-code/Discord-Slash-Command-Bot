@@ -1,1 +1,301 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --font-sans: 'Outfit', sans-serif;
+}
+
+@layer components {
+  /* .liquid-glass (light glass for metrics/stats) */
+  .liquid-glass {
+    background: rgba(255,255,255,0.01) !important;
+    background-blend-mode: luminosity !important;
+    backdrop-filter: blur(4px) !important;
+    border: none !important;
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.1) !important;
+    position: relative !important;
+    overflow: visible !important;
+  }
+  
+  .liquid-glass::before {
+    content: "" !important;
+    position: absolute !important;
+    inset: 0 !important;
+    border-radius: inherit !important;
+    padding: 1.4px !important;
+    background: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.15) 20%, transparent 40%, transparent 60%, rgba(255,255,255,0.15) 80%, rgba(255,255,255,0.45) 100%) !important;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0) !important;
+    -webkit-mask-composite: xor !important;
+    mask-composite: exclude !important;
+    pointer-events: none !important;
+  }
+
+  /* .liquid-glass-strong (heavy glass for CTA/panels) */
+  .liquid-glass-strong {
+    background: rgba(255,255,255,0.01) !important;
+    background-blend-mode: luminosity !important;
+    backdrop-filter: blur(50px) !important;
+    border: none !important;
+    box-shadow: 4px 4px 4px rgba(0,0,0,0.05), inset 0 1px 1px rgba(255,255,255,0.15) !important;
+    position: relative !important;
+    overflow: visible !important;
+  }
+
+  .liquid-glass-strong::before {
+    content: "" !important;
+    position: absolute !important;
+    inset: 0 !important;
+    border-radius: inherit !important;
+    padding: 1.4px !important;
+    background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.2) 20%, transparent 40%, transparent 60%, rgba(255,255,255,0.2) 80%, rgba(255,255,255,0.5) 100%) !important;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0) !important;
+    -webkit-mask-composite: xor !important;
+    mask-composite: exclude !important;
+    pointer-events: none !important;
+  }
+}
+
+/* Global resets for pure black/dark theme */
+html, body, #root {
+  background-color: #080808 !important;
+  color: #ffffff !important;
+  font-family: 'Outfit', sans-serif !important;
+  color-scheme: dark !important;
+}
+
+/* Page wrapper container */
+.bg-slate-50 {
+  background-color: #080808 !important;
+}
+
+/* Map .bg-white globally to behave exactly like .liquid-glass-strong, excluding sidebar, header, tbody, select, input, and textarea */
+.bg-white:not(aside):not(header):not(tbody):not(select):not(input):not(textarea) {
+  background: rgba(255,255,255,0.01) !important;
+  background-blend-mode: luminosity !important;
+  backdrop-filter: blur(50px) !important;
+  border: none !important;
+  box-shadow: 4px 4px 4px rgba(0,0,0,0.05), inset 0 1px 1px rgba(255,255,255,0.15) !important;
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.bg-white:not(aside):not(header):not(tbody):not(select):not(input):not(textarea)::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: inherit !important;
+  padding: 1.4px !important;
+  background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.2) 20%, transparent 40%, transparent 60%, rgba(255,255,255,0.2) 80%, rgba(255,255,255,0.5) 100%) !important;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0) !important;
+  -webkit-mask-composite: xor !important;
+  mask-composite: exclude !important;
+  pointer-events: none !important;
+}
+
+/* Flat dark layouts for aside and header (Sidebar & Top Navbar) */
+header, aside {
+  background-color: #0c0c0c !important;
+  border-color: #1c1c1c !important;
+  border-style: solid !important;
+  box-shadow: none !important;
+}
+header::before, aside::before {
+  display: none !important;
+}
+
+/* Sidebar profile section */
+.bg-slate-50\/50 {
+  background-color: #151515 !important;
+}
+
+/* Nested section headers or tables background */
+.bg-slate-50\/75, .bg-slate-50\/40, .bg-slate-50 {
+  background-color: #151515 !important;
+}
+
+/* Text overrides to white/light grey */
+.text-slate-900,
+.text-slate-950,
+.text-slate-800,
+.text-gray-900,
+.text-gray-800 {
+  color: #ffffff !important;
+}
+
+.text-slate-700,
+.text-slate-600,
+.text-gray-700,
+.text-gray-600 {
+  color: #cccccc !important;
+}
+
+.text-slate-500,
+.text-slate-400,
+.text-gray-500,
+.text-gray-400 {
+  color: #888888 !important;
+}
+
+/* Global borders overrides */
+.border-slate-200,
+.border-slate-100,
+.border-gray-200,
+.border-gray-100,
+.border-slate-200\/60 {
+  border-color: #1c1c1c !important;
+}
+
+.divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+.divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.divide-y > :not([hidden]) ~ :not([hidden]) {
+  border-color: #1c1c1c !important;
+}
+
+/* Active links and main buttons background to white, text to black */
+.bg-slate-900,
+.bg-slate-900.text-white,
+.bg-slate-900.text-slate-50 {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+.bg-slate-900 *,
+.bg-slate-900.text-white *,
+.bg-slate-900.text-slate-50 * {
+  color: #000000 !important;
+}
+
+.bg-slate-900:hover {
+  background-color: #e5e5e5 !important;
+}
+
+/* Inactive nav hover state */
+.hover\:bg-slate-100:hover {
+  background-color: #181818 !important;
+  color: #ffffff !important;
+}
+.hover\:bg-slate-100:hover * {
+  color: #ffffff !important;
+}
+
+/* Forms, selects, and input controls */
+select, input, textarea {
+  background-color: #181818 !important;
+  border-color: #262626 !important;
+  color: #ffffff !important;
+  color-scheme: dark !important;
+}
+select option {
+  background-color: #121212 !important;
+  color: #ffffff !important;
+}
+select:focus, input:focus, textarea:focus {
+  outline: none !important;
+  border-color: #444444 !important;
+  box-shadow: none !important;
+}
+
+/* Rainbow border circular branding logo (top left) */
+.h-6.w-6.rounded-md.bg-slate-900 {
+  border-radius: 50% !important;
+  border: 1.5px solid transparent !important;
+  background-image: linear-gradient(#0c0c0c, #0c0c0c), linear-gradient(135deg, #ff007f, #7f00ff, #00ffff, #ff007f) !important;
+  background-origin: border-box !important;
+  background-clip: content-box, border-box !important;
+}
+
+/* Dashboard StatCards (grid-cols-4) colored glass glows */
+.grid-cols-4 > div:nth-child(1) {
+  background: rgba(210, 220, 255, 0.06) !important;
+}
+.grid-cols-4 > div:nth-child(1) * {
+  color: #ffffff !important;
+}
+
+.grid-cols-4 > div:nth-child(2) {
+  background: rgba(255, 229, 180, 0.06) !important;
+}
+.grid-cols-4 > div:nth-child(2) * {
+  color: #ffffff !important;
+}
+
+.grid-cols-4 > div:nth-child(3) {
+  background: rgba(218, 245, 236, 0.06) !important;
+}
+.grid-cols-4 > div:nth-child(3) * {
+  color: #ffffff !important;
+}
+
+/* Connected Servers Cards (grid-cols-3) colored glass glows */
+.grid-cols-3 > div:nth-child(1) {
+  background: rgba(210, 220, 255, 0.06) !important;
+}
+.grid-cols-3 > div:nth-child(1) * {
+  color: #ffffff !important;
+}
+
+.grid-cols-3 > div:nth-child(2) {
+  background: rgba(255, 229, 180, 0.06) !important;
+}
+.grid-cols-3 > div:nth-child(2) * {
+  color: #ffffff !important;
+}
+
+.grid-cols-3 > div:nth-child(3) {
+  background: rgba(218, 245, 236, 0.06) !important;
+}
+.grid-cols-3 > div:nth-child(3) * {
+  color: #ffffff !important;
+}
+
+/* Configure buttons on server glass cards should be solid white with black text */
+.grid-cols-3 > div button {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border-color: #ffffff !important;
+}
+.grid-cols-3 > div button * {
+  color: #000000 !important;
+}
+.grid-cols-3 > div button:hover {
+  background-color: #e5e5e5 !important;
+}
+
+/* Badge text colors for 'Bot Installed' status inside colored cards */
+.grid-cols-3 > div:nth-child(1) .text-green-700,
+.grid-cols-3 > div:nth-child(2) .text-green-700,
+.grid-cols-3 > div:nth-child(3) .text-green-700 {
+  color: #4ade80 !important; /* light green for readability on dark glass BG */
+  background-color: rgba(74, 222, 128, 0.1) !important;
+  border-color: rgba(74, 222, 128, 0.2) !important;
+}
+
+/* Transparent overlays for icons inside colored cards */
+.grid-cols-4 > div:nth-child(1) .bg-slate-50,
+.grid-cols-4 > div:nth-child(2) .bg-slate-50,
+.grid-cols-4 > div:nth-child(3) .bg-slate-50,
+.grid-cols-3 > div:nth-child(1) .bg-slate-50,
+.grid-cols-3 > div:nth-child(2) .bg-slate-50,
+.grid-cols-3 > div:nth-child(3) .bg-slate-50,
+.grid-cols-3 > div:nth-child(1) .bg-slate-900,
+.grid-cols-3 > div:nth-child(2) .bg-slate-900,
+.grid-cols-3 > div:nth-child(3) .bg-slate-900 {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Standard transparent/outlined card styles */
+.bg-red-50 {
+  background-color: #1a0f0f !important;
+  border-color: #421818 !important;
+}
+.text-red-700 {
+  color: #ef4444 !important;
+}
+
+.bg-green-50 {
+  background-color: #0f1a14 !important;
+  border-color: #184227 !important;
+}
+.text-green-700 {
+  color: #4ade80 !important;
+}

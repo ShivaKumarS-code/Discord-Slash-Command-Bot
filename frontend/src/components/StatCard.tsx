@@ -10,7 +10,7 @@ export interface StatCardProps {
 
 export function StatCard({ title, value, icon: Icon, description }: StatCardProps) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col justify-between">
+    <div className="liquid-glass rounded-xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col justify-between">
       <div className="flex items-center justify-between space-x-4">
         <span className="text-sm font-medium text-slate-500 truncate">{title}</span>
         <div className="p-2 rounded-lg bg-slate-50 text-slate-500">

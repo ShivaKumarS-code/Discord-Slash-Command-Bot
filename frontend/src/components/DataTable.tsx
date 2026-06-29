@@ -32,7 +32,7 @@ export function DataTable({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200 bg-white">
+          <tbody className="divide-y divide-[#1c1c1c] bg-white [&>tr:first-child]:border-t-0">
             {rowCount > 0 ? (
               children
             ) : (
