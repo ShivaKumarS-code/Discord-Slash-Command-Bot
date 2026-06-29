@@ -71,14 +71,14 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen w-screen items-center justify-center bg-radial from-slate-50 to-slate-200 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-100 bg-white/80 p-8 shadow-2xl backdrop-blur-md">
+    <div className="flex min-h-screen w-screen items-center justify-center bg-[#080808] p-4">
+      <div className="w-full max-w-md rounded-2xl border border-slate-100 bg-white p-8 shadow-2xl backdrop-blur-md">
         <div className="mb-8 text-center">
           <h2 className="text-3xl font-extrabold tracking-tight text-slate-900">
             {isRegistering ? "Create an account" : "Sign in to Dashboard"}
           </h2>
           <p className="mt-2 text-sm text-slate-500">
-            {isRegistering ? "Get started with your monorepo client" : "Enter your email and password below"}
+            {isRegistering ? "Get started with your discord bot!" : "Enter your email and password below"}
           </p>
         </div>
 
